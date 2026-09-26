@@ -60,6 +60,51 @@ function buildModel(meshes, alliance, elName) {
   return g;
 }
 
+
+// Enclosure details on the HUB that the test-element CAD lacks: polycarbonate lower panels and the teal REBUILT sign.
+function signTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 384;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2aa9b8';
+  g.fillRect(0, 0, 512, 384);
+  g.strokeStyle = 'rgba(15,40,60,.85)';
+  g.setLineDash([16, 10]);
+  g.lineWidth = 6;
+  g.strokeRect(20, 20, 472, 344);
+  g.setLineDash([]);
+  g.fillStyle = '#12222e';
+  g.font = 'italic 900 84px "Segoe UI", sans-serif';
+  g.textAlign = 'center';
+  g.fillText('REBUILT', 262, 214);
+  g.fillStyle = '#f2c14e';
+  g.beginPath(); g.moveTo(90, 150); g.lineTo(140, 120); g.lineTo(190, 150); g.lineTo(140, 180); g.closePath(); g.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+function hubDetails() {
+  const g = new THREE.Group();
+  const half = 23.9 * IN;
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.14, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
+  const sign = new THREE.MeshStandardMaterial({ map: signTexture(), roughness: 0.5 });
+  for (let i = 0; i < 4; i++) {
+    const holder = new THREE.Group();
+    holder.rotation.y = i * Math.PI / 2;
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(45 * IN, 34 * IN), glassMat);
+    glass.position.set(0, 20 * IN, half);
+    holder.add(glass);
+    if (i % 2 === 0) { // the two faces without the tag pairs facing the bumps carry the sign
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(30 * IN, 22.5 * IN), sign);
+      s.position.set(0, 21 * IN, half + 0.004);
+      holder.add(s);
+    }
+    g.add(holder);
+  }
+  return g;
+}
 async function loadJson(url) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
@@ -180,6 +225,7 @@ export async function buildField(base = './models/') {
         const y = alliance === 'blue' ? iy : FIELD_W - iy;
         holder.position.set(x * IN, 0, -y * IN);
         if (alliance === 'red') holder.rotation.y = Math.PI;
+        if (el.name === 'hub') holder.add(hubDetails());
         holder.userData = { element: el.name, alliance, size: size.toArray() };
         root.add(holder);
       }
@@ -187,6 +233,7 @@ export async function buildField(base = './models/') {
   }
   return root;
 }
+
 
 
 

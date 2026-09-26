@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI } from './ui.js';
 import { buildFuel } from './fuel.js';
+import { buildTags } from './tags.js';
 
 const IN = 0.0254;
 
@@ -49,10 +50,12 @@ scene.add(venue);
 
 buildField().then((f) => scene.add(f));
 scene.add(buildFuel());
+scene.add(buildTags());
 
 // Camera presets
 const VIEWS = {
   hero: () => setView([center.x - 7.5, 5.2, center.z + 8.5], center),
+  hubBlue: () => setView([181.56 * IN + 2.6, 1.9, -158.3 * IN + 0.6], new THREE.Vector3(181.56 * IN, 1.1, -158.3 * IN)),
   top: () => setView([center.x, 19, center.z + 0.01], center),
   blue: () => setView([-1.5, 3.4, center.z], new THREE.Vector3(center.x - 3, 0.6, center.z)),
   red: () => setView([FIELD_L * IN + 1.5, 3.4, center.z], new THREE.Vector3(center.x + 3, 0.6, center.z)),
@@ -112,4 +115,5 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+
 
