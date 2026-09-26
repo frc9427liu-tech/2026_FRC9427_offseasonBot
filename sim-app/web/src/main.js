@@ -4,6 +4,7 @@ import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI } from './ui.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
+import { buildVenue } from './venue.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -23,7 +24,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x070d1a);
-scene.fog = new THREE.Fog(0x070d1a, 18, 46);
+scene.fog = new THREE.Fog(0x070d1a, 24, 60);
 // Image-based lighting so metal and paint get believable reflections
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -39,7 +40,7 @@ controls.minDistance = 2;
 controls.maxDistance = 30;
 
 scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2233, 0.35));
-const sun = new THREE.DirectionalLight(0xfff3e0, 2.6);
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.5);
 sun.position.set(center.x + 6, 14, center.z + 5);
 sun.target.position.copy(center);
 sun.castShadow = true;
@@ -49,17 +50,10 @@ sc.left = -10; sc.right = 10; sc.top = 6; sc.bottom = -6; sc.near = 1; sc.far = 
 sun.shadow.bias = -0.0004;
 scene.add(sun, sun.target);
 
-// Venue floor beyond the field
-const venue = new THREE.Mesh(new THREE.PlaneGeometry(200, 200),
-  new THREE.MeshStandardMaterial({ color: 0x0c1424, roughness: 0.95 }));
-venue.rotation.x = -Math.PI / 2;
-venue.position.y = -0.01;
-venue.receiveShadow = true;
-scene.add(venue);
-
 buildField().then((f) => scene.add(f));
 scene.add(buildFuel());
 scene.add(buildTags());
+scene.add(buildVenue());
 
 // Camera presets
 const VIEWS = {
@@ -135,6 +129,8 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+
+
 
 
 
