@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { analyzeProject } from './analyze.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const UI_PORT = Number(process.env.SIM_BRIDGE_PORT || 8765);
@@ -21,6 +22,24 @@ const state = {
 const clients = new Set();
 const send = (ws, msg) => { if (ws.readyState === 1) ws.send(JSON.stringify(msg)); };
 const broadcast = (msg) => clients.forEach((c) => send(c, msg));
+
+// ---------- read the project's source: how is it driven? (re-run whenever the code changes) ----------
+let controlsInfo = null, watcher = null, watchTimer = null;
+function analyze(projectDir) {
+  try { controlsInfo = analyzeProject(projectDir); } catch (e) { controlsInfo = { ok: false, error: String(e.message || e) }; }
+  broadcast({ t: 'controls', data: controlsInfo });
+}
+function watchProject(projectDir) {
+  if (watcher) watcher.close();
+  const src = path.join(projectDir, 'src', 'main', 'java');
+  if (!fs.existsSync(src)) return;
+  try {
+    watcher = fs.watch(src, { recursive: true }, () => {
+      clearTimeout(watchTimer);
+      watchTimer = setTimeout(() => analyze(projectDir), 700);
+    });
+  } catch { /* recursive watch unsupported: manual re-analyze still works */ }
+}
 
 // ---------- robot process ----------
 let robotProc = null;
@@ -43,6 +62,8 @@ export function startRobot(projectDir) {
   const env = { ...process.env, JAVA_HOME: jdk || process.env.JAVA_HOME, JAVA_TOOL_OPTIONS: '-Dfile.encoding=UTF-8' };
   robotProc = spawn(gradlew, ['simulateJava', '-I', init], { cwd: projectDir, env, shell: process.platform === 'win32' });
   state.robot = { running: true, project: projectDir, log: [] };
+  analyze(projectDir);
+  watchProject(projectDir);
   const onData = (buf) => {
     for (const line of buf.toString().split(/\r?\n/)) {
       if (!line.trim() || /reportJoystickUnpluggedWarning|on port \d+ not available/.test(line)) continue;
@@ -153,10 +174,13 @@ const wss = new WebSocketServer({ port: UI_PORT });
 wss.on('connection', (ws) => {
   clients.add(ws);
   send(ws, { t: 'hello', running: state.robot.running, project: state.robot.project, log: state.robot.log.slice(-60) });
+  if (!controlsInfo && process.env.SIM_PROJECT) analyze(process.env.SIM_PROJECT);
+  if (controlsInfo) send(ws, { t: 'controls', data: controlsInfo });
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw); } catch { return; }
     if (m.t === 'start') send(ws, { t: 'startResult', ...startRobot(m.project || process.env.SIM_PROJECT) });
     else if (m.t === 'stop') stopRobot();
+    else if (m.t === 'analyze') analyze(m.project || process.env.SIM_PROJECT);
     else if (m.t === 'ds') Object.assign(ds, { enabled: !!m.enabled, autonomous: !!m.autonomous, test: !!m.test, estop: !!m.estop });
     else if (m.t === 'joy') joys[m.index ?? 0] = { axes: m.axes || [], buttons: m.buttons || [], povs: m.povs || [] };
   });

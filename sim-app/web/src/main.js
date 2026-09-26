@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
-import { initUI } from './ui.js';
+import { initUI, setControlsInfo } from './ui.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
@@ -10,7 +10,7 @@ import { buildCrowd } from './crowd.js';
 import { buildOfficials } from './officials.js';
 import { buildProps } from './props.js';
 import { events, wireCrowd } from './events.js';
-import { createRobotLink } from './robot.js';
+import { createRobotLink, KEYMAP } from './robot.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -173,7 +173,7 @@ renderer.setAnimationLoop((t) => {
 
 // ---------- UI ----------
 const VIEW_NAMES = { '總覽': 'hero', '俯視': 'top', '藍方': 'blue', '紅方': 'red' };
-initUI({
+const uiApi = initUI({
   onStart: () => {
     document.body.classList.remove('lobby');
     document.body.classList.add('playing');
@@ -190,6 +190,9 @@ initUI({
     if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
   },
 });
+// control panel follows the robot's own source: re-read whenever the bridge re-analyses the project
+link.onControls = (info) => { setControlsInfo(info, KEYMAP); uiApi.refresh(); };
+if (link.controls) link.onControls(link.controls);
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.body.classList.contains('playing')) {
     document.body.classList.remove('playing');

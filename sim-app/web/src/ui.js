@@ -56,6 +56,7 @@ const MODALS = {
     ['鏡頭', [opt('預設鏡頭', '', ['總覽', '俯視', '藍方', '紅方'], 'cam')]],
   ] },
   controls: { title: '操作', pages: [
+    ['程式的操作', [val('狀態', '從機器人原始碼自動分析,程式一改就更新', '尚未連線橋接程式')]],
     ['鍵盤', [val('移動', '', 'W A S D'), val('旋轉', '', 'Q / E'), val('自訂', '從機器人程式的按鍵綁定產生', '—')]],
     ['手把', [val('移動', '', '左搖桿'), val('旋轉', '', '右搖桿')]],
     ['觸控', [val('移動', '', '左側虛擬搖桿'), val('旋轉', '', '右側虛擬搖桿')]],
@@ -67,6 +68,38 @@ const MODALS = {
     ['網路', [val('伺服器', '線上功能開放後設定', '未設定')]],
   ] },
 };
+
+const CN = {
+  LeftX: '左搖桿 左右', LeftY: '左搖桿 前後', RightX: '右搖桿 左右', RightY: '右搖桿 前後', LT: '左板機', RT: '右板機',
+  A: 'A 鍵', B: 'B 鍵', X: 'X 鍵', Y: 'Y 鍵', LB: '左肩鍵 LB', RB: '右肩鍵 RB', Start: 'Start', Back: 'Back',
+  DPadUp: '十字鍵 上', DPadDown: '十字鍵 下', DPadLeft: '十字鍵 左', DPadRight: '十字鍵 右',
+};
+const ORDER = ['LeftY', 'LeftX', 'RightX', 'RightY', 'LT', 'RT', 'A', 'B', 'X', 'Y', 'LB', 'RB', 'Start', 'Back'];
+const ROLE_CN = { 'translate forward/back': '前後移動', 'strafe left/right': '左右平移', rotate: '旋轉' };
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const BIND_CN = { onTrue: '按下時', whileTrue: '按住時', onFalse: '放開時', whileFalse: '未按時', toggleOnTrue: '按一下切換' };
+
+// Rebuild the "controls read from the code" page from the bridge's source analysis.
+export function setControlsInfo(info, keymap = {}) {
+  const page = MODALS.controls.pages[0];
+  if (!info || !info.ok) {
+    page[1] = [val('狀態', '', info && info.error ? info.error : '尚未分析')];
+    return;
+  }
+  const keys = Object.keys(info.controls);
+  const sorted = [...ORDER.filter((k) => keys.includes(k)), ...keys.filter((k) => !ORDER.includes(k))];
+  const rows = sorted.map((k) => {
+    const items = info.controls[k];
+    const parts = items.map((it) => {
+      if (it.kind === 'binding') return `${BIND_CN[it.how] || it.how}:${esc(it.action.replace(/^this\./, ''))}`;
+      if (it.role) return esc(ROLE_CN[it.role] || it.role);
+      return `讀取於 ${esc(it.in || it.at)}`;
+    });
+    return { k: `${CN[k] || k}`, hint: parts.join('<br>'), type: 'val', v: keymap[k] || '—', raw: true };
+  });
+  const ctrl = (info.controllers || []).map((c) => `${c.type} #${c.port}`).join(', ');
+  page[1] = [val('控制器', `共掃描 ${info.filesScanned} 個原始檔`, ctrl || '未找到'), ...rows];
+}
 
 export function initUI({ onStart, onPreview, onSettingChange }) {
   // dock + cards
@@ -130,4 +163,5 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
     if (!$('modal').hidden) close();
     else if (!$('modes').hidden) { $('modes').hidden = true; onPreview(false); }
   });
+  return { refresh: () => { if (!$('modal').hidden) renderModal(); } };
 }

@@ -4,6 +4,12 @@ import * as THREE from 'three';
 
 const BRIDGE_URL = `ws://${location.hostname || 'localhost'}:8765`;
 
+// Default keyboard layout for the virtual Xbox pad (what each physical control is bound to on the keyboard)
+export const KEYMAP = {
+  LeftX: 'A / D', LeftY: 'W / S', RightX: '← / →', RightY: '↑ / ↓', LT: 'Q', RT: 'E',
+  A: 'Space', B: 'B', X: 'X', Y: 'Y', LB: 'Shift', RB: 'R', Start: 'Enter', Back: '—',
+};
+
 export function buildPlaceholderRobot(alliance = 'blue') {
   // Stand-in until the team's own CAD model is loaded: frame, bumpers in alliance colour, and a direction marker.
   const g = new THREE.Group();
@@ -50,7 +56,8 @@ export function createRobotLink(scene) {
           if (link.onPose) link.onPose(m.pose);
         }
         link.onStatus(link);
-      } else if (m.t === 'log') { link.log.push(m.line); if (link.log.length > 200) link.log.shift(); }
+      } else if (m.t === 'controls') { link.controls = m.data; if (link.onControls) link.onControls(m.data); }
+      else if (m.t === 'log') { link.log.push(m.line); if (link.log.length > 200) link.log.shift(); }
       else if (m.t === 'hello') { link.log = m.log || []; }
     };
   }
