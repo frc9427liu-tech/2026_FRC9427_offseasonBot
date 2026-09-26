@@ -7,6 +7,7 @@ import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
 import { buildScoreboards } from './scoreboard.js';
 import { buildCrowd } from './crowd.js';
+import { buildOfficials } from './officials.js';
 import { events, wireCrowd } from './events.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -58,6 +59,7 @@ buildField().then((f) => scene.add(f));
 scene.add(buildFuel());
 scene.add(buildTags());
 scene.add(buildVenue());
+scene.add(buildOfficials());
 const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it

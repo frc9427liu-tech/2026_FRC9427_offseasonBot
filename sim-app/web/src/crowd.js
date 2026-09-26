@@ -10,7 +10,10 @@ import { buildBowl } from './stands.js';
 const L = FIELD_L * 0.0254;
 const W = FIELD_W * 0.0254;
 const CHARS = ['remy', 'p21', 'p22', 'p23'];
-const CLIPS = { idle: 'a_sit_idle', clap: 'a_sit_clap', cheer: 'a_sit_cheer' };
+const CLIPS = {
+  idle: 'a_sit_idle', clap: 'a_sit_clap', cheer: 'a_sit_cheer',
+  st_idle: 'a_standing_idle', st_clap: 'a_standing_clap', st_cheer: 'a_stand_cheer',
+};
 
 // mulberry32: same crowd on every load
 function rng(seed) {
@@ -143,43 +146,74 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
 
   const rand = rng(seed);
   const people = [];
-  {
-    for (const seat of bowl.seats) {
-      if (rand() > occupancy) continue; // empty seats
-      const type = types[Math.floor(rand() * types.length)];
-      const person = SkeletonUtils.clone(type.scene);
-      const x = seat.x;
-      const side = x < L / 2 ? 'blue' : 'red';
-      const fan = rand() < 0.55; // wearing alliance colours
-      const team = side === 'blue' ? BLUE : RED;
-      const look = {
-        skin: pick(rand, SKIN), hair: pick(rand, HAIR),
-        shirt: fan ? pick(rand, team) : pick(rand, CASUAL),
-        pants: pick(rand, JEANS),
-        shirtAmt: fan ? 0.9 : 0.55 + rand() * 0.4,
-        pantsAmt: 0.55 + rand() * 0.4,
-      };
-      person.traverse((o) => {
-        if (!o.isMesh) return;
-        o.castShadow = false; o.receiveShadow = false;
-        o.material = Array.isArray(o.material) ? o.material.map((m) => personalize(m, look, type.hipsY)) : personalize(o.material, look, type.hipsY);
-      });
-      const holder = new THREE.Group();
-      holder.add(person);
-      holder.position.set(x, seat.y + 0.02, seat.z);
-      holder.scale.setScalar((0.96 + rand() * 0.08) / type.k);
-      holder.lookAt(x + seat.fx, holder.position.y, seat.z + seat.fz); // face the field, like the chair
-      const mixer = new THREE.AnimationMixer(person);
-      const actions = {};
-      for (const name of Object.keys(CLIPS)) actions[name] = mixer.clipAction(type.clips[name]);
-      const p = { mixer, actions, side, current: 'idle', pending: null, lag: rand() * 0.9 };
-      actions.idle.time = rand() * actions.idle.getClip().duration;
-      actions.idle.setEffectiveWeight(1).play();
-      for (const n of ['clap', 'cheer']) { actions[n].setEffectiveWeight(0).play(); actions[n].time = rand() * actions[n].getClip().duration; }
-      mixer.timeScale = 0.9 + rand() * 0.2;
-      people.push(p);
-      group.add(holder);
+
+  // Create one animated person. `stand` people use the standing clip set; moods map to clip names by prefix.
+  function spawn({ x, y, z, fx, fz, side, stand = false, look: lookIn = {}, scale = 1 }) {
+    const type = types[Math.floor(rand() * types.length)];
+    const person = SkeletonUtils.clone(type.scene);
+    const fan = rand() < 0.55;
+    const team = side === 'blue' ? BLUE : side === 'red' ? RED : CASUAL;
+    const look = {
+      skin: pick(rand, SKIN), hair: pick(rand, HAIR),
+      shirt: fan ? pick(rand, team) : pick(rand, CASUAL),
+      pants: pick(rand, JEANS),
+      shirtAmt: fan ? 0.9 : 0.55 + rand() * 0.4,
+      pantsAmt: 0.55 + rand() * 0.4,
+      ...lookIn,
+    };
+    person.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = false; o.receiveShadow = false;
+      o.material = Array.isArray(o.material) ? o.material.map((m) => personalize(m, look, type.hipsY)) : personalize(o.material, look, type.hipsY);
+    });
+    const holder = new THREE.Group();
+    holder.add(person);
+    holder.position.set(x, y + 0.02, z);
+    holder.scale.setScalar(scale * (0.96 + rand() * 0.08) / type.k);
+    holder.lookAt(x + fx, holder.position.y, z + fz);
+    const mixer = new THREE.AnimationMixer(person);
+    const pre = stand ? 'st_' : '';
+    const actions = {};
+    for (const m of ['idle', 'clap', 'cheer']) actions[m] = mixer.clipAction(type.clips[pre + m]);
+    const p = { mixer, actions, side, current: 'idle', pending: null, lag: rand() * 0.9, reacts: true };
+    actions.idle.time = rand() * actions.idle.getClip().duration;
+    actions.idle.setEffectiveWeight(1).play();
+    for (const n of ['clap', 'cheer']) { actions[n].setEffectiveWeight(0).play(); actions[n].time = rand() * actions[n].getClip().duration; }
+    mixer.timeScale = 0.9 + rand() * 0.2;
+    people.push(p);
+    group.add(holder);
+    return p;
+  }
+
+  for (const seat of bowl.seats) {
+    if (rand() > occupancy) continue; // empty seats
+    spawn({ x: seat.x, y: seat.y, z: seat.z, fx: seat.fx, fz: seat.fz, side: seat.x < L / 2 ? 'blue' : 'red' });
+  }
+
+  // Staff, referees and drive teams standing on the floor (they only get the idle/clap/cheer standing clips).
+  const IN = 0.0254;
+  const BLACK = [0.07, 0.07, 0.08], NAVY = [0.08, 0.12, 0.3], WHITE = [0.92, 0.92, 0.92];
+  const ADULT = { shirtAmt: 0.95, pantsAmt: 0.9 };
+  // Referees along the field rail on the scoring-table side, facing the field
+  for (const x of [L * 0.14, L * 0.36, L * 0.64, L * 0.86]) {
+    spawn({ x, y: 0, z: 1.05, fx: 0, fz: -1, side: 'ref', stand: true, look: { ...ADULT, shirt: BLACK, pants: BLACK } }).reacts = false;
+  }
+  // Scoring table crew behind the table (facing the field), plus the FTA
+  for (const x of [L * 0.42, L * 0.5, L * 0.58]) {
+    spawn({ x, y: 0, z: 3.15, fx: 0, fz: -1, side: 'ref', stand: true, look: { ...ADULT, shirt: NAVY, pants: BLACK } }).reacts = false;
+  }
+  // Drive teams behind the alliance walls: three stations per alliance
+  const stationY = [W * 0.17, W * 0.5, W * 0.83];
+  for (const sy of stationY) {
+    for (const k of [0, 1]) {
+      const off = (k - 0.5) * 0.7;
+      spawn({ x: -1.0, y: 0, z: -sy + off, fx: 1, fz: 0, side: 'blue', stand: true, look: { ...ADULT, shirt: [0.14, 0.4, 0.95] } });
+      spawn({ x: L + 1.0, y: 0, z: -sy + off, fx: -1, fz: 0, side: 'red', stand: true, look: { ...ADULT, shirt: [0.92, 0.16, 0.2] } });
     }
+  }
+  // Volunteers / event staff loosely standing near the tunnels at both ends
+  for (const [x, z] of [[-3.2, 2.4], [-2.4, 3.6], [L + 3.2, 2.4], [L + 2.4, 3.6]]) {
+    spawn({ x, y: 0, z, fx: 0.6, fz: -1, side: 'ref', stand: true, look: { shirt: NAVY, shirtAmt: 0.95, pantsAmt: 0.85, pants: BLACK } }).reacts = false;
   }
 
   const fade = (p, to) => {
@@ -191,13 +225,13 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
   };
 
   let frame = 0, acc = 0;
-  const timers = []; // { t, side, mood }
+  const timers = []; // { t, side }
   const api = {
     group,
     count: people.length,
-    // side: 'blue' | 'red' | 'both'; mood: 'idle' | 'clap' | 'cheer'. Each fan reacts after a small personal lag.
+    // side: 'blue' | 'red' | 'both'; mood: 'idle' | 'clap' | 'cheer'. Each person reacts after a small personal lag.
     setMood(side, mood) {
-      for (const p of people) if (side === 'both' || p.side === side) p.pending = { to: mood, t: p.lag };
+      for (const p of people) if (p.reacts && (side === 'both' || p.side === side)) p.pending = { to: mood, t: p.lag };
     },
     // Hold a mood for `seconds`, then relax back to idle.
     react(side, mood, seconds) {
