@@ -23,16 +23,16 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.95;
+renderer.toneMappingExposure = 1.0;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x070d1a);
-scene.fog = new THREE.Fog(0x070d1a, 24, 60);
+scene.background = new THREE.Color(0xaeb6c2);
+scene.fog = new THREE.Fog(0xaeb6c2, 45, 110);
 // Image-based lighting so metal and paint get believable reflections
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.28;
+scene.environmentIntensity = 0.5;
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 120);
 const center = new THREE.Vector3(FIELD_L / 2 * IN, 0.4, -FIELD_W / 2 * IN);
@@ -43,7 +43,7 @@ controls.maxPolarAngle = Math.PI * 0.49;
 controls.minDistance = 2;
 controls.maxDistance = 30;
 
-scene.add(new THREE.HemisphereLight(0xdbe8ff, 0x2a2f3a, 0.3));
+scene.add(new THREE.HemisphereLight(0xdbe8ff, 0x6a707c, 0.8));
 const sun = new THREE.DirectionalLight(0xfff3e0, 2.1);
 sun.position.set(center.x + 6, 14, center.z + 5);
 sun.target.position.copy(center);

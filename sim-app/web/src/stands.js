@@ -82,12 +82,12 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
   const nA = 60, nB = 14, nArc = 10;
 
-  const deck = new THREE.MeshStandardMaterial({ color: 0x3a414d, roughness: 0.8 });
+  const deck = new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 });
   const stairMat = new THREE.MeshStandardMaterial({ color: 0x2f3744, roughness: 0.6 });
 
   // arena floor apron: a lighter carpet strip around the field so the field edge sits on a real floor
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(L + 2 * margin + 0.4, W + 2 * margin + 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x353b46, roughness: 0.7, metalness: 0.05 }));
+    new THREE.MeshStandardMaterial({ color: 0x5c6269, roughness: 0.6, metalness: 0.04 }));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(CX, -0.008, CZ);
   apron.receiveShadow = true;
@@ -141,7 +141,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
   // front barrier with a glowing advertising band, and a back wall
   const frontIn = pathSamples(margin - 0.05, nA, nB, nArc, R0, cutZ);
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x11151b, roughness: 0.7 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7 });
   const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff });
   const ribbonH = (pts, y0, y1, mat) => {
     const pos = [], idx = [];

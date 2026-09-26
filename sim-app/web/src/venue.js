@@ -1,97 +1,138 @@
-// Event venue around the field: polished floor, black drape with folds, overhead lamps, alliance colour wash.
+// Event venue: a bright indoor arena. Light walls with banners, a ceiling with trusses and light panels,
+// polished floor, alliance-colour accents. The field stays the focal point; the room is evenly lit, not dark.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
 
-const IN = 0.0254;
-const L = FIELD_L * IN, W = FIELD_W * IN;
+const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 
-function drape(width, height, folds, seed = 0) {
-  const geo = new THREE.PlaneGeometry(width, height, Math.round(width * 6), 1);
-  const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i);
-    p.setZ(i, Math.sin(x * folds + seed) * 0.16 + Math.sin(x * folds * 2.3 + seed * 2) * 0.05);
-  }
-  geo.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x0a0d12, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
-  const m = new THREE.Mesh(geo, mat);
-  m.receiveShadow = true;
-  return m;
+function bannerTexture(color, text) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 768;
+  const g = c.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 768);
+  grad.addColorStop(0, color);
+  grad.addColorStop(1, '#0a1a3a');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 256, 768);
+  g.strokeStyle = 'rgba(255,255,255,.75)';
+  g.lineWidth = 6;
+  g.strokeRect(12, 12, 232, 744);
+  g.fillStyle = '#fff';
+  g.font = 'italic 900 64px "Segoe UI", sans-serif';
+  g.textAlign = 'center';
+  g.save();
+  g.translate(128, 384);
+  g.rotate(-Math.PI / 2);
+  g.fillText(text, 0, 22);
+  g.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+function wallTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 512;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d9dde3';
+  g.fillRect(0, 0, 512, 512);
+  g.strokeStyle = 'rgba(90,100,115,.28)';
+  g.lineWidth = 2;
+  for (let x = 0; x <= 512; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 512); g.stroke(); }
+  for (let y = 0; y <= 512; y += 256) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 export function buildVenue() {
   const g = new THREE.Group();
   const cx = L / 2, cz = -W / 2;
+  const X0 = -17, X1 = L + 17, Zfar = -W - 15.5, Znear = 17, H = 13;
 
-  // Floor beyond the field: dark polished concrete
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120),
-    new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: 0.55, metalness: 0.05 }));
+  // Floor: polished concrete beyond the field
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 4, Znear - Zfar + 4),
+    new THREE.MeshStandardMaterial({ color: 0x5c6269, roughness: 0.6, metalness: 0.04 }));
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(cx, -0.012, cz);
+  floor.position.set(cx, -0.012, (Znear + Zfar) / 2);
   floor.receiveShadow = true;
   g.add(floor);
 
-  // Drapes: rear (far side) and both ends; the scoring-table side is left open for the stands.
-  const rearZ = -W - 14.5; // behind the back wall of the stands
-  const rear = drape(L + 44, 9, 5.5, 1);
-  rear.position.set(cx, 4.5, rearZ);
-  g.add(rear);
-  for (const s of [-1, 1]) {
-    const end = drape(W + 30, 9, 5.5, 3 + s);
-    end.rotation.y = Math.PI / 2;
-    end.position.set(cx + s * (L / 2 + 15), 4.5, cz - 6);
-    g.add(end);
+  // Walls
+  const wt = wallTexture();
+  const wallMat = (rx, ry) => { const t = wt.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
+  const navy = new THREE.MeshStandardMaterial({ color: 0x1a2b52, roughness: 0.8 });
+  const wall = (w, h, x, y, z, ry) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat(w / 4, h / 4));
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    m.receiveShadow = true;
+    g.add(m);
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, 2.4), navy);
+    band.position.set(x, 1.2, z);
+    band.rotation.y = ry;
+    const off = 0.01 * (ry === 0 ? 1 : ry > 0 ? -1 : 1);
+    band.position.z += ry === 0 ? off : 0;
+    band.position.x += ry === 0 ? 0 : (ry > 0 ? -off : off);
+    g.add(band);
+  };
+  wall(X1 - X0, H, cx, H / 2, Zfar, 0);                    // far wall (faces +Z)
+  wall(X1 - X0, H, cx, H / 2, Znear, Math.PI);             // table-side wall (faces -Z)
+  wall(Znear - Zfar, H, X0, H / 2, (Znear + Zfar) / 2, Math.PI / 2);   // blue end wall
+  wall(Znear - Zfar, H, X1, H / 2, (Znear + Zfar) / 2, -Math.PI / 2);  // red end wall
+
+  // Banners along the far wall and ends, alternating alliance colours
+  const banner = (x, y, z, ry, color, text) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.8), new THREE.MeshStandardMaterial({ map: bannerTexture(color, text), roughness: 0.7 }));
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    g.add(m);
+  };
+  for (let i = 0; i < 9; i++) {
+    const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
+    banner(x, 6.4, Zfar + 0.05, 0, i % 2 ? '#c8202f' : '#1f5fd0', 'REBUILT');
+  }
+  for (let j = 0; j < 4; j++) {
+    const z = Zfar + 6 + j * 8;
+    banner(X0 + 0.05, 6.4, z, Math.PI / 2, '#1f5fd0', 'BLUE ALLIANCE');
+    banner(X1 - 0.05, 6.4, z, -Math.PI / 2, '#c8202f', 'RED ALLIANCE');
   }
 
-  // Overhead metal-halide fixtures with warm-white spot pools
-  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff1d6 });
-  const housing = new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.5, metalness: 0.7 });
-  const nx = 6, nz = 3;
+  // Ceiling with steel trusses and light panels
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Znear - Zfar),
+    new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.95, side: THREE.DoubleSide }));
+  ceil.rotation.x = Math.PI / 2;
+  ceil.position.set(cx, H, (Znear + Zfar) / 2);
+  g.add(ceil);
+  const steel = new THREE.MeshStandardMaterial({ color: 0x6d7580, roughness: 0.5, metalness: 0.8 });
+  for (let i = 0; i < 8; i++) {
+    const x = X0 + (i + 0.5) * (X1 - X0) / 8;
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.5, Znear - Zfar), steel);
+    beam.position.set(x, H - 0.4, (Znear + Zfar) / 2);
+    g.add(beam);
+  }
+  const panelMat = new THREE.MeshBasicMaterial({ color: 0xfff6e6 });
+  const spots = [];
+  const nx = 8, nz = 5;
   for (let i = 0; i < nx; i++) {
     for (let j = 0; j < nz; j++) {
-      const x = (i + 0.5) / nx * L;
-      const z = -(j + 0.5) / nz * W;
-      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 0.28, 24), housing);
-      disc.position.set(x, 8.6, z);
-      const bulb = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), lampMat);
-      bulb.rotation.x = Math.PI / 2;
-      bulb.position.set(x, 8.45, z);
-      g.add(disc, bulb);
-      if ((i + j) % 2 === 0) {
-        const s = new THREE.SpotLight(0xfff0dc, 16, 24, 0.85, 0.6, 1.3);
-        s.position.set(x, 8.4, z);
-        s.target.position.set(x, 0, z);
-        g.add(s, s.target);
-      }
+      const x = X0 + (i + 0.5) * (X1 - X0) / nx + 2;
+      const z = Zfar + (j + 0.5) * (Znear - Zfar) / nz;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 1.2), panelMat);
+      panel.position.set(x, H - 0.75, z);
+      g.add(panel);
+      spots.push([x, z]);
     }
   }
-
-  // Warm house lights on the stands so the crowd reads clearly (the field itself stays the brightest thing in the room)
-  const house = (x, z, tx, tz, intensity) => {
-    const s = new THREE.SpotLight(0xffe9cf, intensity, 34, 0.75, 0.8, 1.1);
-    s.position.set(x, 8.2, z);
-    s.target.position.set(tx, 1.4, tz);
+  // spot pools on the floor: stronger over the field, softer over the stands
+  for (const [x, z] of spots) {
+    const overField = x > -2 && x < L + 2 && z > -W - 2 && z < 2;
+    const s = new THREE.SpotLight(0xfff2de, overField ? 60 : 26, 34, 0.7, 0.85, 1.1);
+    s.position.set(x, H - 0.8, z);
+    s.target.position.set(x, 0, z);
     g.add(s, s.target);
-  };
-  for (let i = 0; i < 4; i++) {
-    const x = (i + 0.5) / 4 * L;
-    house(x, -W * 0.55, x, -W - 8, 70);      // audience side
   }
-  house(1, -W / 2, -8, -W / 2, 60);          // blue end
-  house(L - 1, -W / 2, L + 8, -W / 2, 60);   // red end
-
-  // Alliance colour wash on the drapes, like the event uplights
-  const wash = (color, x, z, tx, tz, intensity) => {
-    const s = new THREE.SpotLight(color, intensity, 24, 0.9, 0.9, 1.2);
-    s.position.set(x, 0.3, z);
-    s.target.position.set(tx, 3.5, tz);
-    g.add(s, s.target);
-  };
-  wash(0x1f6bff, 2, -W - 1, 4, rearZ, 90);
-  wash(0xff2a3a, L - 2, -W - 1, L - 4, rearZ, 90);
-  wash(0x1f6bff, -3, -W / 2, cx - 6, rearZ, 60);
-  wash(0xff2a3a, L + 3, -W / 2, cx + 6, rearZ, 60);
   return g;
 }
-
-
