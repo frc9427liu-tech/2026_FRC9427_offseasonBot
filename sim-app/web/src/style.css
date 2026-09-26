@@ -131,3 +131,14 @@ body.playing #shade, body.playing #lobby, body.playing #modes, body.playing #mod
   .ditem { padding: 12px 12px; font-size: 14px; }
   .dcontent { padding: 4px 14px; }
 }
+
+/* driver station bar (in-match) */
+#dsbar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 8px; align-items: center;
+  padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); backdrop-filter: blur(6px); z-index: 6; }
+.ds-chip { font-size: 12px; letter-spacing: .1em; padding: 6px 12px; color: var(--muted); border: 1px solid var(--line); }
+.ds-chip.ok { color: #9be7b5; border-color: #2f8f55; }
+.ds-chip.bad { color: #ff9aa2; border-color: #a13a44; }
+.ds-btn { padding: 8px 16px; font-size: 13px; font-weight: 700; letter-spacing: .1em; background: #14274f; border: 1px solid var(--line); }
+.ds-btn:hover { background: var(--first); }
+.ds-btn.on { background: #1f8a4c; border-color: #46d17f; }
+body:not(.playing) #dsbar { display: none; }

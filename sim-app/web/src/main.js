@@ -10,6 +10,7 @@ import { buildCrowd } from './crowd.js';
 import { buildOfficials } from './officials.js';
 import { buildProps } from './props.js';
 import { events, wireCrowd } from './events.js';
+import { createRobotLink } from './robot.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -65,6 +66,23 @@ scene.add(buildVenue());
 scene.add(buildOfficials());
 const props = buildProps();
 scene.add(props.group);
+
+// ---- robot link (bridge to the running robot code) ----
+const link = createRobotLink(scene);
+window.__link = link;
+let followRobot = false;
+const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), follow: document.getElementById('dsfollow'), bar: document.getElementById('dsbar') };
+link.onStatus = (l) => {
+  dsEl.bar.hidden = false;
+  dsEl.state.textContent = !l.connected ? 'BRIDGE: OFFLINE' : !l.running ? 'ROBOT CODE: STOPPED' : l.state && l.state.hal ? 'ROBOT CODE: RUNNING' : 'ROBOT CODE: STARTING...';
+  dsEl.state.className = 'ds-chip ' + (l.connected && l.running && l.state && l.state.hal ? 'ok' : 'bad');
+  dsEl.en.textContent = l.ds.enabled ? 'DISABLE' : 'ENABLE'; dsEl.en.classList.toggle('on', l.ds.enabled);
+  dsEl.mode.textContent = l.ds.autonomous ? 'AUTO' : 'TELEOP';
+};
+dsEl.en.onclick = () => link.setDs({ enabled: !link.ds.enabled });
+dsEl.mode.onclick = () => link.setDs({ autonomous: !link.ds.autonomous });
+dsEl.follow.onclick = () => { followRobot = !followRobot; dsEl.follow.classList.toggle('on', followRobot); };
+addEventListener('keydown', (e) => { if (e.code === 'Enter' && document.body.classList.contains('playing')) link.setDs({ enabled: !link.ds.enabled }); });
 const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
@@ -135,6 +153,12 @@ renderer.setAnimationLoop((t) => {
   if (menuMode) controls.autoRotate = true, controls.autoRotateSpeed = 0.35;
   else controls.autoRotate = false;
   controls.update();
+  if (followRobot && link.robot.visible) {
+    const p = link.robot.position;
+    controls.target.lerp(new THREE.Vector3(p.x, 0.4, p.z), 0.12);
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target); dir.y = 0;
+    if (dir.length() > 5) camera.position.add(new THREE.Vector3().subVectors(controls.target, camera.position).setY(0).multiplyScalar(0.02));
+  }
   if (crowd) {
     crowd.update(Math.min(dt, 0.1));
     // auto density: shed spectators while the frame rate stays low, never below 35%
@@ -155,6 +179,7 @@ initUI({
     document.body.classList.add('playing');
     menuMode = false;
     VIEWS.top();
+    if (link.connected && !link.running) link.start();
   },
   onPreview: (on) => { if (on) VIEWS.top(); else VIEWS.hero(); },
   onSettingChange: (k, v) => {
