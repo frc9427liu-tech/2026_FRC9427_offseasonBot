@@ -2,6 +2,7 @@
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI } from './ui.js';
+import { buildFuel } from './fuel.js';
 
 const IN = 0.0254;
 
@@ -47,6 +48,7 @@ venue.receiveShadow = true;
 scene.add(venue);
 
 buildField().then((f) => scene.add(f));
+scene.add(buildFuel());
 
 // Camera presets
 const VIEWS = {
@@ -110,3 +112,4 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+

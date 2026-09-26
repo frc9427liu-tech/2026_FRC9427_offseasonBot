@@ -16,7 +16,7 @@ const ELEMENTS = [
   { id: 'TE-26200', name: 'trench',  at: [[181.56, 32.83], [181.56, FIELD_W - 32.83]] },
   { id: 'TE-26500', name: 'tower',   at: [[23.2, 155.36]] },
   { id: 'TE-26000', name: 'outpost', at: [[0, 34.12]] },
-  { id: 'TE-26600', name: 'depot',   at: [[13.5, 254.0]] },
+  { id: 'TE-26600', name: 'depot',   at: [[13.5, 214.0]] },
 ];
 
 function bbox(meshes) {
@@ -115,20 +115,43 @@ export async function buildField(base = './models/') {
   root.add(strip(0, 0, 12, FIELD_W, 0x1d4f99));
   root.add(strip(FIELD_L - 12, 0, 12, FIELD_W, 0x9c2530));
 
-  // Perimeter walls
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0xcfd6df, roughness: 0.4, metalness: 0.2 });
-  const wall = (x, z, w, d, h = 0.5) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-    m.position.set(x, h / 2, z);
-    m.castShadow = m.receiveShadow = true;
-    root.add(m);
-  };
+  // Perimeter: low polycarbonate guardrails on the long sides, diamond plate + glass at the alliance walls.
   const L = FIELD_L * IN, W = FIELD_W * IN;
-  wall(L / 2, 0.03, L, 0.06);
-  wall(L / 2, -W - 0.03, L, 0.06);
-  wall(-0.03, -W / 2, 0.06, W, 0.9);
-  wall(L + 0.03, -W / 2, 0.06, W, 0.9);
-
+  const alu = new THREE.MeshStandardMaterial({ color: 0xc9cfd6, roughness: 0.3, metalness: 0.9 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
+  const add = (geo, mat, x, y, z, shadow = true) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.castShadow = shadow;
+    m.receiveShadow = true;
+    root.add(m);
+    return m;
+  };
+  const guard = (x0, z0, x1, z1, h) => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const ang = Math.atan2(z1 - z0, x1 - x0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const panel = add(new THREE.BoxGeometry(len, h, 0.01), glass, cx, h / 2 + 0.03, cz, false);
+    panel.rotation.y = -ang;
+    const rail = add(new THREE.BoxGeometry(len, 0.035, 0.05), alu, cx, h + 0.05, cz);
+    rail.rotation.y = -ang;
+    const base = add(new THREE.BoxGeometry(len, 0.05, 0.06), alu, cx, 0.045, cz);
+    base.rotation.y = -ang;
+    const n = Math.max(2, Math.round(len / 1.2));
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      add(new THREE.BoxGeometry(0.04, h + 0.05, 0.04), alu, x0 + (x1 - x0) * t, (h + 0.05) / 2, z0 + (z1 - z0) * t);
+    }
+  };
+  guard(0, 0.03, L, 0.03, 0.5);          // scoring-table side (y = 0)
+  guard(0, -W - 0.03, L, -W - 0.03, 0.5); // far side (y = W)
+  // alliance walls: diamond plate lower panel + polycarbonate window
+  const plate = new THREE.MeshStandardMaterial({ color: 0xb9c0c8, roughness: 0.28, metalness: 0.95 });
+  for (const x of [-0.06, L + 0.06]) {
+    add(new THREE.BoxGeometry(0.05, 0.75, W), plate, x, 0.375, -W / 2);
+    add(new THREE.BoxGeometry(0.03, 1.15, W), glass, x, 0.75 + 0.575, -W / 2, false);
+    add(new THREE.BoxGeometry(0.08, 0.06, W), alu, x, 1.93, -W / 2);
+  }
   // Elements from CAD
   for (const el of ELEMENTS) {
     let meshes;
@@ -164,6 +187,7 @@ export async function buildField(base = './models/') {
   }
   return root;
 }
+
 
 
 
