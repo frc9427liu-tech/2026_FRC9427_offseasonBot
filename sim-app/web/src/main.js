@@ -5,6 +5,7 @@ import { initUI } from './ui.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
+import { buildScoreboards } from './scoreboard.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -54,12 +55,17 @@ buildField().then((f) => scene.add(f));
 scene.add(buildFuel());
 scene.add(buildTags());
 scene.add(buildVenue());
+const scoreboards = buildScoreboards();
+scene.add(scoreboards.group);
+scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
+window.__score = (p) => scoreboards.set(p);
 
 // Camera presets
 const VIEWS = {
   hero: () => setView([center.x - 7.5, 5.2, center.z + 8.5], center),
   hubBlue: () => setView([181.56 * IN + 2.6, 1.9, -158.3 * IN + 0.6], new THREE.Vector3(181.56 * IN, 1.1, -158.3 * IN)),
   top: () => setView([center.x, 19, center.z + 0.01], center),
+  scoreboard: () => setView([FIELD_L * IN - 2, 2.2, center.z + 0.3], new THREE.Vector3(-0.25, 2.9, center.z)),
   blue: () => setView([-1.5, 3.4, center.z], new THREE.Vector3(center.x - 3, 0.6, center.z)),
   red: () => setView([FIELD_L * IN + 1.5, 3.4, center.z], new THREE.Vector3(center.x + 3, 0.6, center.z)),
 };
@@ -129,6 +135,7 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+
 
 
 
