@@ -6,6 +6,7 @@ import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
 import { buildScoreboards } from './scoreboard.js';
+import { buildCrowd } from './crowd.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -59,10 +60,13 @@ const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
 window.__score = (p) => scoreboards.set(p);
+let crowd = null;
+buildCrowd().then((c) => { crowd = c; scene.add(c.group); console.log('crowd', c.count); }).catch((e) => console.error('crowd failed', e));
 
 // Camera presets
 const VIEWS = {
   hero: () => setView([center.x - 7.5, 5.2, center.z + 8.5], center),
+  stands: () => setView([center.x - 2, 2.6, center.z - 1.5], new THREE.Vector3(center.x + 1, 2.0, center.z - 8.5)),
   hubBlue: () => setView([181.56 * IN + 2.6, 1.9, -158.3 * IN + 0.6], new THREE.Vector3(181.56 * IN, 1.1, -158.3 * IN)),
   top: () => setView([center.x, 19, center.z + 0.01], center),
   scoreboard: () => setView([FIELD_L * IN - 2, 2.2, center.z + 0.3], new THREE.Vector3(-0.25, 2.9, center.z)),
@@ -107,6 +111,7 @@ renderer.setAnimationLoop((t) => {
   if (menuMode) controls.autoRotate = true, controls.autoRotateSpeed = 0.35;
   else controls.autoRotate = false;
   controls.update();
+  if (crowd) crowd.update(Math.min(dt, 0.1));
   composer.render();
 });
 
@@ -135,6 +140,8 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+
+
 
 
 

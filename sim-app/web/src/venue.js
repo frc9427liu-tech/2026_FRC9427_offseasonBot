@@ -32,7 +32,7 @@ export function buildVenue() {
   g.add(floor);
 
   // Drapes: rear (far side) and both ends; the scoring-table side is left open for the stands.
-  const rearZ = -W - 5.5;
+  const rearZ = -W - 13;
   const rear = drape(L + 24, 7.5, 5.5, 1);
   rear.position.set(cx, 3.75, rearZ);
   g.add(rear);
@@ -79,4 +79,5 @@ export function buildVenue() {
   wash(0xff2a3a, L + 3, -W / 2, cx + 6, rearZ, 60);
   return g;
 }
+
 
