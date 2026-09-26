@@ -82,12 +82,12 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
   const nA = 60, nB = 14, nArc = 10;
 
-  const deck = new THREE.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.8 });
+  const deck = new THREE.MeshStandardMaterial({ color: 0x3a414d, roughness: 0.8 });
   const stairMat = new THREE.MeshStandardMaterial({ color: 0x2f3744, roughness: 0.6 });
 
   // arena floor apron: a lighter carpet strip around the field so the field edge sits on a real floor
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(L + 2 * margin + 0.4, W + 2 * margin + 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x22262d, roughness: 0.7, metalness: 0.05 }));
+    new THREE.MeshStandardMaterial({ color: 0x353b46, roughness: 0.7, metalness: 0.05 }));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(CX, -0.008, CZ);
   apron.receiveShadow = true;
@@ -95,7 +95,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
   const prev = pathSamples(margin, nA, nB, nArc, R0, cutZ);
   const chairGeo = chairGeometry();
-  const chairMat = new THREE.MeshStandardMaterial({ color: 0x1f3a6b, roughness: 0.55, metalness: 0.1 });
+  const chairMat = new THREE.MeshStandardMaterial({ color: 0x2a4f95, roughness: 0.55, metalness: 0.1 });
   const chairs = [];
 
   for (let r = 0; r < rows; r++) {

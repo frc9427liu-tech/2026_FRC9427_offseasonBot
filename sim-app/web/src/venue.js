@@ -66,6 +66,20 @@ export function buildVenue() {
     }
   }
 
+  // Warm house lights on the stands so the crowd reads clearly (the field itself stays the brightest thing in the room)
+  const house = (x, z, tx, tz, intensity) => {
+    const s = new THREE.SpotLight(0xffe9cf, intensity, 34, 0.75, 0.8, 1.1);
+    s.position.set(x, 8.2, z);
+    s.target.position.set(tx, 1.4, tz);
+    g.add(s, s.target);
+  };
+  for (let i = 0; i < 4; i++) {
+    const x = (i + 0.5) / 4 * L;
+    house(x, -W * 0.55, x, -W - 8, 70);      // audience side
+  }
+  house(1, -W / 2, -8, -W / 2, 60);          // blue end
+  house(L - 1, -W / 2, L + 8, -W / 2, 60);   // red end
+
   // Alliance colour wash on the drapes, like the event uplights
   const wash = (color, x, z, tx, tz, intensity) => {
     const s = new THREE.SpotLight(color, intensity, 24, 0.9, 0.9, 1.2);
