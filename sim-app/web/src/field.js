@@ -1,4 +1,4 @@
-﻿// REBUILT 2026 field built from the official element CAD (STEP -> JSON) placed with official coordinates.
+// REBUILT 2026 field built from the official element CAD (STEP -> JSON) placed with official coordinates.
 // Units: field inches from the drawings (X toward Red wall, Y away from scoring table), rendered in meters.
 import * as THREE from 'three';
 
@@ -144,10 +144,10 @@ function carpet() {
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#5d6168';
+  g.fillStyle = '#464a51';
   g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 9000; i++) {
-    const v = 78 + Math.random() * 34;
+    const v = 58 + Math.random() * 30;
     g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
     g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
   }

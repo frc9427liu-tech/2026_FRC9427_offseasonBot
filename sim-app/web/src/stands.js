@@ -82,12 +82,12 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
   const nA = 60, nB = 14, nArc = 10;
 
-  const deck = new THREE.MeshStandardMaterial({ color: 0x1c222c, roughness: 0.8 });
+  const deck = new THREE.MeshStandardMaterial({ color: 0x2a2f38, roughness: 0.8 });
   const stairMat = new THREE.MeshStandardMaterial({ color: 0x2f3744, roughness: 0.6 });
 
   // arena floor apron: a lighter carpet strip around the field so the field edge sits on a real floor
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(L + 2 * margin + 0.4, W + 2 * margin + 0.4),
-    new THREE.MeshStandardMaterial({ color: 0x232830, roughness: 0.75, metalness: 0.05 }));
+    new THREE.MeshStandardMaterial({ color: 0x22262d, roughness: 0.7, metalness: 0.05 }));
   apron.rotation.x = -Math.PI / 2;
   apron.position.set(CX, -0.008, CZ);
   apron.receiveShadow = true;

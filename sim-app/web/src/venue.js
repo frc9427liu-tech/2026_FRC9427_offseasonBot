@@ -1,4 +1,4 @@
-﻿// Event venue around the field: polished floor, black drape with folds, overhead lamps, alliance colour wash.
+// Event venue around the field: polished floor, black drape with folds, overhead lamps, alliance colour wash.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
 
@@ -25,7 +25,7 @@ export function buildVenue() {
 
   // Floor beyond the field: dark polished concrete
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120),
-    new THREE.MeshStandardMaterial({ color: 0x080b10, roughness: 0.6, metalness: 0.05 }));
+    new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: 0.55, metalness: 0.05 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, -0.012, cz);
   floor.receiveShadow = true;
@@ -58,7 +58,7 @@ export function buildVenue() {
       bulb.position.set(x, 8.45, z);
       g.add(disc, bulb);
       if ((i + j) % 2 === 0) {
-        const s = new THREE.SpotLight(0xfff0dc, 9, 20, 0.7, 0.7, 1.6);
+        const s = new THREE.SpotLight(0xfff0dc, 16, 24, 0.85, 0.6, 1.3);
         s.position.set(x, 8.4, z);
         s.target.position.set(x, 0, z);
         g.add(s, s.target);
