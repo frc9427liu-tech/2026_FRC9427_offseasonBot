@@ -1,6 +1,7 @@
-import * as THREE from 'three';
+﻿import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
+import { initUI } from './ui.js';
 
 const IN = 0.0254;
 
@@ -85,65 +86,27 @@ renderer.setAnimationLoop((t) => {
   renderer.render(scene, camera);
 });
 
-// ---------- Menu ----------
-const MENU = [
-  { id: 'play', label: 'PLAY', sub: '比賽', tabs: [
-    ['match', '正式比賽', [['模式', '3v3 · 完整規則'], ['場次', '2:40（自動 20s + 遙控 2:20）'], ['對手', '玩家 / AI（即將推出）']]],
-    ['practice', '自由練習', [['場地', '空場、無時間限制'], ['球數', '依規則 / 自訂']]],
-    ['auto', '自動路徑測試', [['路徑', 'PathPlanner / Choreo'], ['來源', '從機器人專案讀取']]],
-    ['online', '線上房間', [['狀態', '尚未開放（先做場地）']]],
-  ] },
-  { id: 'robot', label: 'ROBOT', sub: '機器人', tabs: [
-    ['model', '外觀模型', [['目前', '簡化方塊'], ['Onshape', '之後匯入']]],
-    ['code', '程式與按鍵', [['程式', 'FRC9427 offseasonBot'], ['按鍵綁定', '從 RobotContainer 自動讀取']]],
-    ['params', '物理參數', [['質量 / 尺寸 / 速度', '依機器人程式設定']]],
-  ] },
-  { id: 'field', label: 'FIELD', sub: '場地', tabs: [
-    ['rules', '規則', [['賽季', '2026 REBUILT'], ['計分', '官方（可自訂）']]],
-    ['fuel', 'Fuel 球', [['直徑', '5.91 in'], ['質量', '0.448–0.500 lb'], ['總數', '504（456 + 48）']]],
-    ['view', '鏡頭與畫質', [['視角', 'hero / top / blue / red'], ['陰影', '高']]],
-  ] },
-  { id: 'controls', label: 'CONTROLS', sub: '操作', tabs: [
-    ['kb', '鍵盤', [['移動', 'W A S D'], ['旋轉', 'Q / E']]],
-    ['pad', '手把', [['移動', '左搖桿'], ['旋轉', '右搖桿']]],
-    ['touch', '觸控', [['移動', '左側虛擬搖桿'], ['旋轉', '右側虛擬搖桿']]],
-  ] },
-  { id: 'settings', label: 'SETTINGS', sub: '設定', tabs: [
-    ['gfx', '畫面', [['解析度縮放', '自動'], ['垂直同步', '開']]],
-    ['audio', '音效', [['音量', '80%']]],
-    ['net', '網路', [['伺服器', '未設定']]],
-  ] },
-];
-
-const menuEl = document.getElementById('menu');
-const pageEl = document.getElementById('page');
-let cur = 'play', curTab = 0;
-
-function renderMenu() {
-  menuEl.innerHTML = '';
-  for (const m of MENU) {
-    const b = document.createElement('button');
-    b.className = 'menu-item' + (m.id === cur ? ' active' : '');
-    b.innerHTML = `${m.label}<small>${m.sub}</small>`;
-    b.onclick = () => { cur = m.id; curTab = 0; renderMenu(); renderPage(); };
-    menuEl.appendChild(b);
-  }
-}
-function renderPage() {
-  const m = MENU.find((x) => x.id === cur);
-  const tabs = m.tabs.map((t, i) => `<button class="tab${i === curTab ? ' active' : ''}" data-i="${i}">${t[1]}</button>`).join('');
-  const rows = m.tabs[curTab][2].map(([k, v]) => `<div class="row"><span class="k">${k}</span><span>${v}</span></div>`).join('');
-  pageEl.innerHTML = `<div class="sub-tabs">${tabs}</div><div class="card">${rows}</div>`;
-  pageEl.querySelectorAll('.tab').forEach((el) => (el.onclick = () => { curTab = +el.dataset.i; renderPage(); }));
-}
-renderMenu();
-renderPage();
-
-document.getElementById('start').onclick = () => {
-  document.body.classList.add('playing');
-  menuMode = false;
-  VIEWS.top();
-};
+// ---------- UI ----------
+const VIEW_NAMES = { '總覽': 'hero', '俯視': 'top', '藍方': 'blue', '紅方': 'red' };
+initUI({
+  onStart: () => {
+    document.body.classList.remove('lobby');
+    document.body.classList.add('playing');
+    menuMode = false;
+    VIEWS.top();
+  },
+  onPreview: (on) => { if (on) VIEWS.top(); else VIEWS.hero(); },
+  onSettingChange: (k, v) => {
+    if (k === 'shadows') renderer.shadowMap.enabled = !!v;
+    if (k === 'quality') renderer.setPixelRatio(v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+    if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
+  },
+});
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { document.body.classList.remove('playing'); menuMode = true; VIEWS.hero(); }
+  if (e.key === 'Escape' && document.body.classList.contains('playing')) {
+    document.body.classList.remove('playing');
+    document.body.classList.add('lobby');
+    menuMode = true;
+    VIEWS.hero();
+  }
 });

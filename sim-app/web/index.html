@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -6,20 +6,49 @@
 <title>FRC 9427 Simulator</title>
 <link rel="stylesheet" href="./src/style.css">
 </head>
-<body>
+<body class="lobby">
 <canvas id="view"></canvas>
 <div id="shade"></div>
 
 <header id="topbar">
-  <div class="brand"><span class="brand-mark">9427</span><span class="brand-name">SIMULATOR</span></div>
-  <div class="status"><span id="fps">-- FPS</span></div>
+  <div class="brand"><span class="brand-mark">9427</span><span class="brand-name">SIMULATOR</span><span class="season">REBUILT 2026</span></div>
+  <div class="icons">
+    <span class="pill" id="fps">-- FPS</span>
+    <button class="ico" data-open="settings" title="設定">⚙</button>
+  </div>
 </header>
 
-<aside id="left"><nav id="menu"></nav><main id="page"></main></aside>
+<!-- Lobby -->
+<section id="lobby">
+  <div id="cards"></div>
+  <nav id="dock"></nav>
+  <div id="startbar">
+    <button id="modebtn" class="modebtn"><span class="mi">◈</span><span id="modelabel">正式比賽</span></button>
+    <button id="start" class="cta"><span class="cta-sub" id="startsub">READY</span><span class="cta-main">START</span></button>
+  </div>
+</section>
 
-<button id="start" class="cta"><span class="cta-sub">READY</span><span class="cta-main">START</span></button>
+<!-- Mode select -->
+<section id="modes" hidden>
+  <div class="screen-head"><button class="back" data-back>‹</button><h2>模式選擇</h2></div>
+  <div class="modes-body">
+    <div class="rail" id="rail"></div>
+    <div class="modelist" id="modelist"></div>
+    <div class="preview"><div class="preview-tag" id="prevtag"></div></div>
+  </div>
+</section>
+
+<!-- Modal (robot / field / controls / settings) -->
+<div id="modal" hidden>
+  <div class="dialog">
+    <div class="dialog-head"><h2 id="mtitle"></h2><button class="x" data-close>✕</button></div>
+    <div class="dialog-body">
+      <div class="dlist" id="mlist"></div>
+      <div class="dcontent" id="mcontent"></div>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
-
