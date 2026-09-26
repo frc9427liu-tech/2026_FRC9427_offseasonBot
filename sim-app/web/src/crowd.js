@@ -104,7 +104,7 @@ function buildStands(rows, rowDepth, rise, z0) {
   return { group: g, rowTop: (r) => rise * (r + 1) };
 }
 
-export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
+export async function buildCrowd({ occupancy = 0.55, seed = 7 } = {}) {
   const group = new THREE.Group();
   const bowl = buildBowl({ rows: 6, rowDepth: 1.0, rise: 0.4, margin: 3.4 });
   group.add(bowl.group);
@@ -175,7 +175,7 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
     const pre = stand ? 'st_' : '';
     const actions = {};
     for (const m of ['idle', 'clap', 'cheer']) actions[m] = mixer.clipAction(type.clips[pre + m]);
-    const p = { mixer, actions, side, current: 'idle', pending: null, lag: rand() * 0.9, reacts: true };
+    const p = { mixer, actions, side, current: 'idle', pending: null, lag: rand() * 0.9, reacts: true, holder, rank: rand(), essential: false };
     actions.idle.time = rand() * actions.idle.getClip().duration;
     actions.idle.setEffectiveWeight(1).play();
     for (const n of ['clap', 'cheer']) { actions[n].setEffectiveWeight(0).play(); actions[n].time = rand() * actions[n].getClip().duration; }
@@ -190,6 +190,7 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
     spawn({ x: seat.x, y: seat.y, z: seat.z, fx: seat.fx, fz: seat.fz, side: seat.x < L / 2 ? 'blue' : 'red' });
   }
 
+  const seatPeople = people.length;
   // Staff, referees and drive teams standing on the floor (they only get the idle/clap/cheer standing clips).
   const IN = 0.0254;
   const BLACK = [0.07, 0.07, 0.08], NAVY = [0.08, 0.12, 0.3], WHITE = [0.92, 0.92, 0.92];
@@ -222,6 +223,8 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
   }
   spawn({ x: -6.5, y: 0, z: 6.4, fx: 0.2, fz: -1, side: 'ref', stand: true, look: { shirt: WHITE, shirtAmt: 0.9, pants: BLACK, pantsAmt: 0.9 } }).reacts = false;
 
+  people.slice(seatPeople).forEach((p) => { p.essential = true; }); // staff are never culled
+
   const fade = (p, to) => {
     if (to === p.current) return;
     const a = p.actions[to], b = p.actions[p.current];
@@ -230,11 +233,17 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
     p.current = to;
   };
 
-  let frame = 0, acc = 0;
+  let frame = 0, acc = 0, density = 1;
   const timers = []; // { t, side }
   const api = {
     group,
     count: people.length,
+    // Keep only the given fraction of spectators (staff stay); used by the quality setting and the auto-adapt in main.js.
+    setDensity(f) {
+      density = f;
+      for (const p of people) p.holder.visible = p.essential || p.rank < f;
+    },
+    get density() { return density; },
     // side: 'blue' | 'red' | 'both'; mood: 'idle' | 'clap' | 'cheer'. Each person reacts after a small personal lag.
     setMood(side, mood) {
       for (const p of people) if (p.reacts && (side === 'both' || p.side === side)) p.pending = { to: mood, t: p.lag };
@@ -255,7 +264,7 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
           if (p.pending.t <= 0) { fade(p, p.pending.to); p.pending = null; }
         }
       }
-      for (let i = frame % 4; i < people.length; i += 4) people[i].mixer.update(acc);
+      for (let i = frame % 4; i < people.length; i += 4) if (people[i].holder.visible) people[i].mixer.update(acc);
       if (frame % 4 === 3) acc = 0;
     },
   };

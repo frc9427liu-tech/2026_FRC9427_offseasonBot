@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 
 export const settings = {
-  quality: '高', shadows: true, vsync: true, volume: '中',
+  quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中',
   cam: 'hero', hints: true, units: '英制',
 };
 
@@ -61,7 +61,7 @@ const MODALS = {
     ['觸控', [val('移動', '', '左側虛擬搖桿'), val('旋轉', '', '右側虛擬搖桿')]],
   ] },
   settings: { title: '設定', pages: [
-    ['畫面', [opt('畫質', '影響效能', ['低', '中', '高'], 'quality'), sw('陰影', '', 'shadows'), sw('垂直同步', '', 'vsync')]],
+    ['畫面', [opt('畫質', '影響效能', ['低', '中', '高'], 'quality'), opt('人群密度', '自動會依流暢度調整', ['自動', '低', '中', '高'], 'crowd'), sw('陰影', '', 'shadows'), sw('垂直同步', '', 'vsync')]],
     ['介面', [sw('提示文字', '顯示操作提示', 'hints'), opt('單位', '', ['英制', '公制'], 'units')]],
     ['音效', [opt('音量', '', ['靜音', '低', '中', '高'], 'volume')]],
     ['網路', [val('伺服器', '線上功能開放後設定', '未設定')]],

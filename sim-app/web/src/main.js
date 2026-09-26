@@ -69,6 +69,8 @@ scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
 window.__score = (p) => scoreboards.set(p);
 let crowd = null;
+let crowdMode = '自動';
+let slowSince = 0;
 window.__events = events; // dev hook: __events.emit('score', { side: 'blue', points: 1 })
 events.on('score', ({ side, points = 1 }) => {
   const key = side === 'blue' ? 'blue' : 'red';
@@ -126,7 +128,14 @@ renderer.setAnimationLoop((t) => {
   if (menuMode) controls.autoRotate = true, controls.autoRotateSpeed = 0.35;
   else controls.autoRotate = false;
   controls.update();
-  if (crowd) crowd.update(Math.min(dt, 0.1));
+  if (crowd) {
+    crowd.update(Math.min(dt, 0.1));
+    // auto density: shed spectators while the frame rate stays low, never below 35%
+    if (crowdMode === '自動' && dt > 0.05 && crowd.density > 0.35) {
+      slowSince += dt;
+      if (slowSince > 2.5) { crowd.setDensity(Math.max(0.35, crowd.density - 0.15)); slowSince = 0; }
+    } else if (dt <= 0.05) slowSince = 0;
+  }
   props.update(t / 1000);
   composer.render();
 });
@@ -142,6 +151,7 @@ initUI({
   },
   onPreview: (on) => { if (on) VIEWS.top(); else VIEWS.hero(); },
   onSettingChange: (k, v) => {
+    if (k === 'crowd') { crowdMode = v; if (crowd && v !== '自動') crowd.setDensity(v === '低' ? 0.35 : v === '中' ? 0.7 : 1); }
     if (k === 'shadows') renderer.shadowMap.enabled = !!v;
     if (k === 'quality') ao.enabled = v === '高';
     if (k === 'quality') renderer.setPixelRatio(v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
