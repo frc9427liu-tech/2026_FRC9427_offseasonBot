@@ -30,18 +30,46 @@ function bbox(meshes) {
 
 const near = (c, r, g, b) => Math.abs(c.r - r) < 0.03 && Math.abs(c.g - g) < 0.03 && Math.abs(c.b - b) < 0.03;
 
+
+// Cheap surface detail for CAD that ships as flat colour: world-space noise varies roughness, grime gathers
+// near the floor, and an edge term lifts silhouettes/creases so panels read as bevelled metal, not moulded plastic.
+function enhance(mat, { grime = 0.35, rough = 0.22, edge = 1.6 } = {}) {
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec3 vWPos;
+float h31(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(h31(i),h31(i+vec3(1,0,0)),f.x), mix(h31(i+vec3(0,1,0)),h31(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x), mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y), f.z); }
+float fbm(vec3 p){ return 0.55*vn(p) + 0.3*vn(p*2.7) + 0.15*vn(p*7.1); }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+float nz = fbm(vWPos * 6.0);
+float low = smoothstep(0.45, 0.0, vWPos.y);
+diffuseColor.rgb *= 1.0 - ${grime.toFixed(2)} * low * (0.4 + nz);
+float ed = length(fwidth(normalize(vNormal)));
+diffuseColor.rgb += ed * ${edge.toFixed(2)} * 0.35;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.toFixed(2)} + low * 0.15, 0.05, 1.0);`);
+  };
+  mat.customProgramCacheKey = () => `enh${grime}${rough}${edge}`;
+  return mat;
+}
 // The CAD ships default STEP colours; map them to real materials (see official field photos).
 function material(base, alliance, elName) {
   const paint = ALLIANCE[alliance];
   const coat = { roughness: 0.46, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.32 };
-  if (near(base, 0.82, 0.49, 0.21)) return new THREE.MeshPhysicalMaterial({ color: paint, ...coat });
+  if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
   if (near(base, 0.83, 0.60, 0.39)) {
-    if (elName === 'bump') return new THREE.MeshPhysicalMaterial({ color: paint, ...coat });
+    if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
     const c = elName === 'depot' ? 0x8b9198 : 0x14171c;
-    return new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 });
+    return enhance(new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 }), { edge: 0.8 });
   }
-  if (near(base, 0.60, 0.60, 0.60)) return new THREE.MeshStandardMaterial({ color: 0xb4bbc4, roughness: 0.42, metalness: 1 });
-  if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshStandardMaterial({ color: 0xe9edf2, roughness: 0.45, metalness: 0.05 });
+  if (near(base, 0.60, 0.60, 0.60)) return enhance(new THREE.MeshStandardMaterial({ color: 0xb4bbc4, roughness: 0.42, metalness: 1 }), { rough: 0.3, edge: 1.2 });
+  if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshPhysicalMaterial({ color: 0xdfeaf5, roughness: 0.12, metalness: 0, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false, clearcoat: 1 }); // HUB funnel is clear polycarbonate
   if (near(base, 0.38, 0.38, 0.38)) return new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.6, metalness: 0.3 });
   return new THREE.MeshStandardMaterial({ color: base, roughness: 0.55, metalness: 0.2 });
 }
@@ -251,6 +279,8 @@ export async function buildField(base = './models/') {
   }
   return root;
 }
+
+
 
 
 
