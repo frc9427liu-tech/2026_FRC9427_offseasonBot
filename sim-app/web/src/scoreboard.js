@@ -84,6 +84,33 @@ export function buildScoreboards() {
     group.add(holder);
   }
 
+  // Centre-hung four-sided video cube (arena style): every face shows the same live score.
+  {
+    const cube = new THREE.Group();
+    const size = 3.6, fh = 0.9;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(size, fh + 0.5, size), frameMat);
+    body.position.y = 0;
+    cube.add(body);
+    for (let i = 0; i < 4; i++) {
+      const s = makeScreen();
+      boards.push(s);
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(size - 0.1, fh),
+        new THREE.MeshBasicMaterial({ map: s.tex, toneMapped: false }));
+      const holder = new THREE.Group();
+      holder.add(face);
+      face.position.z = size / 2 + 0.01;
+      holder.rotation.y = (i * Math.PI) / 2;
+      cube.add(holder);
+    }
+    cube.position.set(L / 2, 10.0, -W / 2);
+    group.add(cube);
+    for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.3, 6), frameMat);
+      cable.position.set(L / 2 + dx * 1.5, 11.65, -W / 2 + dz * 1.5);
+      group.add(cable);
+    }
+  }
+
   const api = {
     group,
     set(patch) {

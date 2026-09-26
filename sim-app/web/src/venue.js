@@ -94,6 +94,17 @@ export function buildVenue() {
     const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
     banner(x, 6.4, Zfar + 0.05, 0, i % 2 ? '#c8202f' : '#1f5fd0', 'REBUILT');
   }
+  for (let i = 0; i < 9; i++) { // referee-side wall: same banners, plus a long sponsor strip
+    const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
+    banner(x, 6.4, Znear - 0.05, Math.PI, i % 2 ? '#1f5fd0' : '#c8202f', 'FIRST ROBOTICS');
+  }
+  {
+    const strip = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 - 6, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0x14274f, roughness: 0.7 }));
+    strip.position.set(cx, 3.6, Znear - 0.04);
+    strip.rotation.y = Math.PI;
+    g.add(strip);
+  }
   for (let j = 0; j < 4; j++) {
     const z = Zfar + 6 + j * 8;
     banner(X0 + 0.05, 6.4, z, Math.PI / 2, '#1f5fd0', 'BLUE ALLIANCE');

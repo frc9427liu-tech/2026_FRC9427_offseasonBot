@@ -216,6 +216,12 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
     spawn({ x, y: 0, z, fx: 0.6, fz: -1, side: 'ref', stand: true, look: { shirt: NAVY, shirtAmt: 0.95, pantsAmt: 0.85, pants: BLACK } }).reacts = false;
   }
 
+  // Camera operators behind the broadcast tripods (props.js), FTA at the tent
+  for (const [x, z, fz] of [[L * 0.22, 4.95, -1], [L * 0.78, 4.95, -1], [-4.4, -W / 2 - 0.6, 1]]) {
+    spawn({ x, y: 0, z, fx: 0, fz, side: 'ref', stand: true, look: { shirt: BLACK, shirtAmt: 0.95, pants: BLACK, pantsAmt: 0.9 } }).reacts = false;
+  }
+  spawn({ x: -6.5, y: 0, z: 6.4, fx: 0.2, fz: -1, side: 'ref', stand: true, look: { shirt: WHITE, shirtAmt: 0.9, pants: BLACK, pantsAmt: 0.9 } }).reacts = false;
+
   const fade = (p, to) => {
     if (to === p.current) return;
     const a = p.actions[to], b = p.actions[p.current];

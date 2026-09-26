@@ -8,6 +8,7 @@ import { buildVenue } from './venue.js';
 import { buildScoreboards } from './scoreboard.js';
 import { buildCrowd } from './crowd.js';
 import { buildOfficials } from './officials.js';
+import { buildProps } from './props.js';
 import { events, wireCrowd } from './events.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -16,6 +17,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const IN = 0.0254;
+const W_M = FIELD_W * IN;
 
 // ---------- 3D scene ----------
 const canvas = document.getElementById('view');
@@ -60,6 +62,8 @@ scene.add(buildFuel());
 scene.add(buildTags());
 scene.add(buildVenue());
 scene.add(buildOfficials());
+const props = buildProps();
+scene.add(props.group);
 const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
@@ -75,6 +79,8 @@ buildCrowd().then((c) => { crowd = c; wireCrowd(c); scene.add(c.group); console.
 // Camera presets
 const VIEWS = {
   hero: () => setView([center.x - 7.5, 5.2, center.z + 8.5], center),
+  wide: () => setView([center.x + 6, 7.5, -W_M - 8], new THREE.Vector3(center.x - 2, 2.5, 2)),
+  table: () => setView([center.x - 3, 2.6, -W_M - 2.5], new THREE.Vector3(center.x + 1, 1.2, 4)),
   stands: () => setView([center.x - 2, 2.6, center.z - 1.5], new THREE.Vector3(center.x + 1, 2.0, center.z - 8.5)),
   hubBlue: () => setView([181.56 * IN + 2.6, 1.9, -158.3 * IN + 0.6], new THREE.Vector3(181.56 * IN, 1.1, -158.3 * IN)),
   top: () => setView([center.x, 19, center.z + 0.01], center),
@@ -121,6 +127,7 @@ renderer.setAnimationLoop((t) => {
   else controls.autoRotate = false;
   controls.update();
   if (crowd) crowd.update(Math.min(dt, 0.1));
+  props.update(t / 1000);
   composer.render();
 });
 
