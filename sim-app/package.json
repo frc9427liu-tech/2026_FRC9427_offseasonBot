@@ -1,0 +1,23 @@
+﻿{
+    "name":  "sim-app",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "scripts":  {
+                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1"
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "dependencies":  {
+                         "@gltf-transform/core":  "^4.5.0",
+                         "occt-import-js":  "^0.0.23",
+                         "three":  "^0.186.1"
+                     },
+    "devDependencies":  {
+                            "vite":  "^8.3.1"
+                        },
+    "type":  "module"
+}
