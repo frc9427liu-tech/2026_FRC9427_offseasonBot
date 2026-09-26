@@ -28,7 +28,24 @@ function bbox(meshes) {
   return b;
 }
 
-function buildModel(meshes, tint) {
+const near = (c, r, g, b) => Math.abs(c.r - r) < 0.03 && Math.abs(c.g - g) < 0.03 && Math.abs(c.b - b) < 0.03;
+
+// The CAD ships default STEP colours; map them to real materials (see official field photos).
+function material(base, alliance, elName) {
+  const paint = ALLIANCE[alliance];
+  if (near(base, 0.82, 0.49, 0.21)) return new THREE.MeshStandardMaterial({ color: paint, roughness: 0.35, metalness: 0.1 });
+  if (near(base, 0.83, 0.60, 0.39)) {
+    if (elName === 'bump') return new THREE.MeshStandardMaterial({ color: paint, roughness: 0.3, metalness: 0.1 });
+    const c = elName === 'depot' ? 0x8b9198 : 0x14171c;
+    return new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, metalness: 0.05 });
+  }
+  if (near(base, 0.60, 0.60, 0.60)) return new THREE.MeshStandardMaterial({ color: 0xc3c9d0, roughness: 0.32, metalness: 0.85 });
+  if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshStandardMaterial({ color: 0xe9edf2, roughness: 0.45, metalness: 0.05 });
+  if (near(base, 0.38, 0.38, 0.38)) return new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.6, metalness: 0.3 });
+  return new THREE.MeshStandardMaterial({ color: base, roughness: 0.55, metalness: 0.2 });
+}
+
+function buildModel(meshes, alliance, elName) {
   const g = new THREE.Group();
   for (const m of meshes) {
     const geo = new THREE.BufferGeometry();
@@ -36,9 +53,7 @@ function buildModel(meshes, tint) {
     geo.setIndex(m.idx);
     geo.computeVertexNormals();
     const base = m.color ? new THREE.Color(m.color[0], m.color[1], m.color[2]) : new THREE.Color(0x9aa4b2);
-    const mat = new THREE.MeshStandardMaterial({ color: base, roughness: 0.55, metalness: 0.15 });
-    if (tint !== undefined && base.r > 0.5 && base.g < 0.3 && base.b < 0.3) mat.color.setHex(ALLIANCE.red);
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(geo, material(base, alliance, elName));
     mesh.castShadow = mesh.receiveShadow = true;
     g.add(mesh);
   }
@@ -55,10 +70,10 @@ function carpet() {
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#3b4149';
+  g.fillStyle = '#5d6168';
   g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 9000; i++) {
-    const v = 50 + Math.random() * 26;
+    const v = 78 + Math.random() * 34;
     g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
     g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
   }
@@ -128,7 +143,7 @@ export async function buildField(base = './models/') {
     const ctr = bb.getCenter(new THREE.Vector3());
     for (const alliance of ['blue', 'red']) {
       for (const [ix, iy] of el.at) {
-        const m = buildModel(meshes);
+        const m = buildModel(meshes, alliance, el.name);
         const holder = new THREE.Group();
         // Raw model is Z-up in its own frame: recentre on x/y, sit on floor, then map (x,y,z)->(x,z,y).
         m.position.set(-ctr.x, -ctr.y, -bb.min.z);
@@ -149,4 +164,6 @@ export async function buildField(base = './models/') {
   }
   return root;
 }
+
+
 
