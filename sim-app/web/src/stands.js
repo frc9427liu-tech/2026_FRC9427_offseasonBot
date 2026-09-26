@@ -134,6 +134,43 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
       dist += seg;
     }
   }
+  // Referee-side stands: set well back from the scoring table, tent and cameras so those keep their working space,
+  // with a concourse rail in front. They face the field (-Z).
+  {
+    const zStart = 8.4, nRows = 5, x0 = -12.5, x1 = L + 12.5;
+    const nearW = x1 - x0;
+    const nearFront = zStart;
+    for (let r = 0; r < nRows; r++) {
+      const hTop = rise * (r + 1);
+      const step = new THREE.Mesh(new THREE.BoxGeometry(nearW, hTop, rowDepth), deck);
+      step.position.set((x0 + x1) / 2, hTop / 2, nearFront + r * rowDepth + rowDepth / 2);
+      step.receiveShadow = true;
+      group.add(step);
+      const z = nearFront + r * rowDepth + rowDepth * 0.62;
+      let count = 0;
+      for (let x = x0 + 0.3; x < x1 - 0.2; x += 0.55) {
+        count++;
+        if (count % 12 === 0) {
+          const st = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, rowDepth * 0.95), stairMat);
+          st.position.set(x, hTop + 0.03, z);
+          group.add(st);
+          continue;
+        }
+        const m = new THREE.Matrix4().makeRotationY(Math.PI); // face -Z
+        m.setPosition(x, hTop, z);
+        chairs.push(m);
+        seats.push({ x, y: hTop, z, fx: 0, fz: -1, row: r, zone: 'near' });
+      }
+    }
+    // concourse rail and back wall for this section
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(nearW, 0.9, 0.08), new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7 }));
+    rail.position.set((x0 + x1) / 2, 0.45, nearFront - 0.05);
+    group.add(rail);
+    const glow = new THREE.Mesh(new THREE.BoxGeometry(nearW, 0.09, 0.02), new THREE.MeshBasicMaterial({ color: 0x3a8dff }));
+    glow.position.set((x0 + x1) / 2, 0.6, nearFront - 0.1);
+    group.add(glow);
+  }
+
   const inst = new THREE.InstancedMesh(chairGeo, chairMat, chairs.length);
   chairs.forEach((m, i) => inst.setMatrixAt(i, m));
   inst.castShadow = false; inst.receiveShadow = true;

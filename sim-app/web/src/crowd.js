@@ -186,7 +186,7 @@ export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
   }
 
   for (const seat of bowl.seats) {
-    if (rand() > occupancy) continue; // empty seats
+    if (rand() > (seat.zone === 'near' ? occupancy * 0.62 : occupancy)) continue; // empty seats
     spawn({ x: seat.x, y: seat.y, z: seat.z, fx: seat.fx, fz: seat.fz, side: seat.x < L / 2 ? 'blue' : 'red' });
   }
 
