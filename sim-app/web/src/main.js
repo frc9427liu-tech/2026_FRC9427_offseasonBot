@@ -4,6 +4,11 @@ import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI } from './ui.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const IN = 0.0254;
 
@@ -19,6 +24,10 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x070d1a);
 scene.fog = new THREE.Fog(0x070d1a, 18, 46);
+// Image-based lighting so metal and paint get believable reflections
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.22;
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 120);
 const center = new THREE.Vector3(FIELD_L / 2 * IN, 0.4, -FIELD_W / 2 * IN);
@@ -29,8 +38,8 @@ controls.maxPolarAngle = Math.PI * 0.49;
 controls.minDistance = 2;
 controls.maxDistance = 30;
 
-scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2233, 0.9));
-const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2233, 0.35));
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.6);
 sun.position.set(center.x + 6, 14, center.z + 5);
 sun.target.position.copy(center);
 sun.castShadow = true;
@@ -68,9 +77,19 @@ function setView(pos, target) {
 window.__view = (n) => VIEWS[n] && VIEWS[n]();
 VIEWS.hero();
 
+// Post: ambient occlusion for contact shadows
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+ao.output = GTAOPass.OUTPUT.Default;
+ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1.1, samples: 12 });
+composer.addPass(ao);
+composer.addPass(new OutputPass());
+
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
+  composer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -88,7 +107,7 @@ renderer.setAnimationLoop((t) => {
   if (menuMode) controls.autoRotate = true, controls.autoRotateSpeed = 0.35;
   else controls.autoRotate = false;
   controls.update();
-  renderer.render(scene, camera);
+  composer.render();
 });
 
 // ---------- UI ----------
@@ -103,6 +122,7 @@ initUI({
   onPreview: (on) => { if (on) VIEWS.top(); else VIEWS.hero(); },
   onSettingChange: (k, v) => {
     if (k === 'shadows') renderer.shadowMap.enabled = !!v;
+    if (k === 'quality') ao.enabled = v === '高';
     if (k === 'quality') renderer.setPixelRatio(v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
     if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
   },
@@ -115,5 +135,8 @@ addEventListener('keydown', (e) => {
     VIEWS.hero();
   }
 });
+
+
+
 
 

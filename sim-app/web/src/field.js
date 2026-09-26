@@ -33,13 +33,14 @@ const near = (c, r, g, b) => Math.abs(c.r - r) < 0.03 && Math.abs(c.g - g) < 0.0
 // The CAD ships default STEP colours; map them to real materials (see official field photos).
 function material(base, alliance, elName) {
   const paint = ALLIANCE[alliance];
-  if (near(base, 0.82, 0.49, 0.21)) return new THREE.MeshStandardMaterial({ color: paint, roughness: 0.35, metalness: 0.1 });
+  const coat = { roughness: 0.46, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.32 };
+  if (near(base, 0.82, 0.49, 0.21)) return new THREE.MeshPhysicalMaterial({ color: paint, ...coat });
   if (near(base, 0.83, 0.60, 0.39)) {
-    if (elName === 'bump') return new THREE.MeshStandardMaterial({ color: paint, roughness: 0.3, metalness: 0.1 });
+    if (elName === 'bump') return new THREE.MeshPhysicalMaterial({ color: paint, ...coat });
     const c = elName === 'depot' ? 0x8b9198 : 0x14171c;
-    return new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, metalness: 0.05 });
+    return new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 });
   }
-  if (near(base, 0.60, 0.60, 0.60)) return new THREE.MeshStandardMaterial({ color: 0xc3c9d0, roughness: 0.32, metalness: 0.85 });
+  if (near(base, 0.60, 0.60, 0.60)) return new THREE.MeshStandardMaterial({ color: 0xb4bbc4, roughness: 0.42, metalness: 1 });
   if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshStandardMaterial({ color: 0xe9edf2, roughness: 0.45, metalness: 0.05 });
   if (near(base, 0.38, 0.38, 0.38)) return new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.6, metalness: 0.3 });
   return new THREE.MeshStandardMaterial({ color: base, roughness: 0.55, metalness: 0.2 });
@@ -130,6 +131,23 @@ function carpet() {
   return t;
 }
 
+function carpetBump() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#808080';
+  g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 14000; i++) {
+    const v = 60 + Math.random() * 140;
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 1.5);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(FIELD_L / 12, FIELD_W / 12);
+  return t;
+}
+
 function strip(x0, y0, w, h, color, y = 0.002) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w * IN, h * IN),
     new THREE.MeshStandardMaterial({ color, roughness: 0.9 }));
@@ -144,7 +162,7 @@ export async function buildField(base = './models/') {
 
   // Carpet + surround
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(FIELD_L * IN, FIELD_W * IN),
-    new THREE.MeshStandardMaterial({ map: carpet(), roughness: 1 }));
+    new THREE.MeshStandardMaterial({ map: carpet(), bumpMap: carpetBump(), bumpScale: 1.2, roughness: 1 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(FIELD_L / 2 * IN, 0, -FIELD_W / 2 * IN);
   floor.receiveShadow = true;
@@ -233,6 +251,7 @@ export async function buildField(base = './models/') {
   }
   return root;
 }
+
 
 
 
