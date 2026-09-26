@@ -1,4 +1,4 @@
-﻿import * as THREE from 'three';
+import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI } from './ui.js';
@@ -7,6 +7,7 @@ import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
 import { buildScoreboards } from './scoreboard.js';
 import { buildCrowd } from './crowd.js';
+import { events, wireCrowd } from './events.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -61,7 +62,12 @@ scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
 window.__score = (p) => scoreboards.set(p);
 let crowd = null;
-buildCrowd().then((c) => { crowd = c; scene.add(c.group); console.log('crowd', c.count); }).catch((e) => console.error('crowd failed', e));
+window.__events = events; // dev hook: __events.emit('score', { side: 'blue', points: 1 })
+events.on('score', ({ side, points = 1 }) => {
+  const key = side === 'blue' ? 'blue' : 'red';
+  scoreboards.set({ [key]: scoreboards.state[key] + points });
+});
+buildCrowd().then((c) => { crowd = c; wireCrowd(c); scene.add(c.group); console.log('crowd', c.count); }).catch((e) => console.error('crowd failed', e));
 
 // Camera presets
 const VIEWS = {
