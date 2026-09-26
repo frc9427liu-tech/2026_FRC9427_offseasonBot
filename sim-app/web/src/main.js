@@ -17,6 +17,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const IN = 0.0254;
+window.__dbg = {}; // dev hooks for profiling
 const W_M = FIELD_W * IN;
 
 // ---------- 3D scene ----------
@@ -76,7 +77,12 @@ events.on('score', ({ side, points = 1 }) => {
   const key = side === 'blue' ? 'blue' : 'red';
   scoreboards.set({ [key]: scoreboards.state[key] + points });
 });
-buildCrowd().then((c) => { crowd = c; wireCrowd(c); scene.add(c.group); console.log('crowd', c.count); }).catch((e) => console.error('crowd failed', e));
+buildCrowd().then((c) => {
+  crowd = c; wireCrowd(c); scene.add(c.group); console.log('crowd', c.count);
+  // keep the crowd out of the AO pre-pass (its override material would draw the un-animated T-pose)
+  const aoRender = ao.render.bind(ao);
+  ao.render = (...args) => { c.meshes.forEach((m) => { m.visible = false; }); aoRender(...args); c.meshes.forEach((m) => { m.visible = true; }); };
+}).catch((e) => console.error('crowd failed', e));
 
 // Camera presets
 const VIEWS = {
@@ -102,6 +108,7 @@ VIEWS.hero();
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
+Object.assign(window.__dbg, { scene, ao, renderer });
 ao.output = GTAOPass.OUTPUT.Default;
 ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1.1, samples: 12 });
 composer.addPass(ao);
