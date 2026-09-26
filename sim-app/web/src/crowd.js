@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { FIELD_L, FIELD_W } from './field.js';
+import { buildBowl } from './stands.js';
 
 const L = FIELD_L * 0.0254;
 const W = FIELD_W * 0.0254;
@@ -100,11 +101,10 @@ function buildStands(rows, rowDepth, rise, z0) {
   return { group: g, rowTop: (r) => rise * (r + 1) };
 }
 
-export async function buildCrowd({ rows = 6, perRow = 20, seed = 7 } = {}) {
+export async function buildCrowd({ occupancy = 0.3, seed = 7 } = {}) {
   const group = new THREE.Group();
-  const rowDepth = 0.95, rise = 0.38, z0 = W + 3.2; // audience side: beyond the far guardrail (y = W)
-  const stands = buildStands(rows, rowDepth, rise, z0);
-  group.add(stands.group);
+  const bowl = buildBowl({ rows: 6, rowDepth: 1.0, rise: 0.4, margin: 3.4 });
+  group.add(bowl.group);
 
   const loader = new GLTFLoader();
   const load = (f) => loader.loadAsync(`./crowd/${f}.glb`);
@@ -143,14 +143,12 @@ export async function buildCrowd({ rows = 6, perRow = 20, seed = 7 } = {}) {
 
   const rand = rng(seed);
   const people = [];
-  const spacing = (L + 2) / perRow;
-  const centerZ = -W / 2;
-  for (let r = 0; r < rows; r++) {
-    for (let i = 0; i < perRow; i++) {
-      if (rand() < 0.3) continue; // empty seats
+  {
+    for (const seat of bowl.seats) {
+      if (rand() > occupancy) continue; // empty seats
       const type = types[Math.floor(rand() * types.length)];
       const person = SkeletonUtils.clone(type.scene);
-      const x = -1 + i * spacing + (rand() - 0.5) * 0.25;
+      const x = seat.x;
       const side = x < L / 2 ? 'blue' : 'red';
       const fan = rand() < 0.55; // wearing alliance colours
       const team = side === 'blue' ? BLUE : RED;
@@ -168,10 +166,9 @@ export async function buildCrowd({ rows = 6, perRow = 20, seed = 7 } = {}) {
       });
       const holder = new THREE.Group();
       holder.add(person);
-      const z = -(z0 + r * rowDepth + rowDepth * 0.6);
-      holder.position.set(x, stands.rowTop(r) + 0.02, z);
+      holder.position.set(x, seat.y + 0.02, seat.z);
       holder.scale.setScalar((0.96 + rand() * 0.08) / type.k);
-      holder.lookAt(L / 2 * 0.6 + x * 0.4, holder.position.y, centerZ);
+      holder.lookAt(x + seat.fx, holder.position.y, seat.z + seat.fz); // face the field, like the chair
       const mixer = new THREE.AnimationMixer(person);
       const actions = {};
       for (const name of Object.keys(CLIPS)) actions[name] = mixer.clipAction(type.clips[name]);
