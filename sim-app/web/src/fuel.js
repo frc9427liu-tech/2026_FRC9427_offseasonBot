@@ -1,7 +1,8 @@
-// FUEL: 5.91 in foam balls. Starting layout follows the official field photos:
+// FUEL: 5.91 in foam balls. Starting layout follows the official manual (6.3.4) and field photos:
 //  - 360 in the neutral zone (two hex-packed blocks straddling the center line, 15 across x 12 deep each)
-//  - 24 in each DEPOT (4 x 6 rows on the mat)
-// (Outpost corral balls and robot preloads are added when robots arrive.)
+//  - 24 staged in each DEPOT (manual: "may not be in a uniform layout" - hex-packed here, same as neutral zone)
+//  - 24 staged in each OUTPOST CHUTE (manual 6.3.4; see assets-src/imgs/blue-outpost-corral.jpg)
+// (Robot preloads are added when robots arrive.)
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
 import { BallSim } from './balls.js';
@@ -33,6 +34,12 @@ export function startingLayout() {
     for (const [lx, ly] of hexBlock(0, 0, 6, 4)) {
       // Blue depot: on the blue wall, beside the tower. Red is the 180 deg rotation.
       const bx = 14 + lx, by = 214 + ly;
+      pts.push(alliance === 'blue' ? [bx, by] : [FIELD_L - bx, FIELD_W - by]);
+    }
+    for (const [lx, ly] of hexBlock(0, 0, 4, 6)) {
+      // Blue outpost chute: at the alliance wall near the audience-side corner (field.js ELEMENTS anchor
+      // for 'outpost' is (0, 34.12)); inset off the wall by the same margin the depot rack uses.
+      const bx = 14 + lx, by = 34.12 + ly;
       pts.push(alliance === 'blue' ? [bx, by] : [FIELD_L - bx, FIELD_W - by]);
     }
   }
