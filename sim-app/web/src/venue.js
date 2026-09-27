@@ -35,9 +35,9 @@ function wallTexture() {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#d9dde3';
+  g.fillStyle = '#aab0b9';   // was near-white; a real precast/drywall arena wall reads mid-grey under these lights
   g.fillRect(0, 0, 512, 512);
-  g.strokeStyle = 'rgba(90,100,115,.28)';
+  g.strokeStyle = 'rgba(40,46,54,.35)';
   g.lineWidth = 2;
   for (let x = 0; x <= 512; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 512); g.stroke(); }
   for (let y = 0; y <= 512; y += 256) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); }
@@ -113,7 +113,7 @@ export function buildVenue() {
 
   // Ceiling with steel trusses and light panels
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Znear - Zfar),
-    new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.95, side: THREE.DoubleSide }));
+    new THREE.MeshStandardMaterial({ color: 0x8f95a0, roughness: 0.95, side: THREE.DoubleSide }));   // was near-white
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(cx, H, (Znear + Zfar) / 2);
   g.add(ceil);
@@ -124,7 +124,7 @@ export function buildVenue() {
     beam.position.set(x, H - 0.4, (Znear + Zfar) / 2);
     g.add(beam);
   }
-  const panelMat = new THREE.MeshBasicMaterial({ color: 0xfff6e6 });
+  const panelMat = new THREE.MeshBasicMaterial({ color: 0xe4dcc3 });   // warm light panel, dimmed so it reads as a lit fixture, not a blown-out card
   const spots = [];
   const nx = 8, nz = 5;
   for (let i = 0; i < nx; i++) {

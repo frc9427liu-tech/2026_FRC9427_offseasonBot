@@ -23,7 +23,7 @@ function signTexture(text) {
 export function buildOfficials() {
   const g = new THREE.Group();
   const cloth = new THREE.MeshStandardMaterial({ color: 0x14171d, roughness: 0.95 });
-  const top = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.5 });
+  const top = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.55 });   // was near-white laminate, now a duller grey-white
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.3 });
   const screen = new THREE.MeshBasicMaterial({ color: 0x6fb4ff });
   const cover = new THREE.MeshStandardMaterial({ color: 0xf2c14e, roughness: 0.6 });

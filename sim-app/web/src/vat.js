@@ -142,7 +142,8 @@ export function bakeType(scene, clips, fps = 12) {
 const DUMMY = (() => { const t = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1); t.needsUpdate = true; return t; })();
 
 export function makeMaterial(baked, hipsY, timeUniform) {
-  const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 });
+  // low envMapIntensity: at 1 the room environment gave every shirt a faint plastic sheen
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, envMapIntensity: 0.12 });
   const texUniforms = {};
   for (let i = 0; i < 6; i++) texUniforms[`uTex${i}`] = { value: baked.textures[i] || DUMMY };
   mat.onBeforeCompile = (sh) => {

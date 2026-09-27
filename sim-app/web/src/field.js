@@ -249,7 +249,7 @@ export async function buildField(base = './models/') {
   const zone = 158.6;
   root.add(strip(zone - 1, 0, 2, FIELD_W, 0x1b62d8));
   root.add(strip(FIELD_L - zone - 1, 0, 2, FIELD_W, 0xd8283a));
-  root.add(strip(FIELD_L / 2 - 1, 0, 2, FIELD_W, 0xdfe6ee));
+  root.add(strip(FIELD_L / 2 - 1, 0, 2, FIELD_W, 0xc7ccd2));   // center line: was near-white tape, dulled slightly
 
   // Alliance-colored floor bands near the walls
   root.add(strip(0, 0, 12, FIELD_W, 0x0a4fb8));
