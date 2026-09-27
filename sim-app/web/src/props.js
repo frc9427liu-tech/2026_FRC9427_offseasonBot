@@ -1,7 +1,7 @@
 // Venue props: broadcast cameras, FTA tent, LED ribbon board, exit gates, hanging pennant flags.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
-import { CX, CZ, AISLE_END_Z, STAND_TOP_H } from './stands.js';
+import { CX, CZ, AISLE_END_Z, STAND_TOP_H, DECK_END_Z } from './stands.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 const dark = () => new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.4 });
@@ -127,14 +127,17 @@ export function buildProps() {
   const exit = new THREE.MeshBasicMaterial({ color: 0x25d366 });
   for (const s of [-1, 1]) {
     const x = s < 0 ? -12.45 : L + 12.45;   // just inside the venue end wall (venue.js X0/X1 = ∓12.5)
-    for (const z of [15, -3]) {   // was 8.5: inside the referee-side stand block's own footprint (z 8.4-13.4), blocked by it
-      const door = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3.2), gateMat);
-      door.position.set(x, 1.6, z);
+    // z=15: arena floor, clear of the referee-side stand block (z 8.4-13.4). z=-12: up on the mezzanine,
+    // far enough along the end wall not to overlap that wall's entrance door (at AISLE_END_Z, about -4.3).
+    for (const z of [15, -12]) {
+      const h = z < DECK_END_Z ? STAND_TOP_H : 0;   // on the mezzanine the door starts at its floor, not y=0
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.2), gateMat);
+      door.position.set(x, h + 1.1, z);
       door.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;
-      const top = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 2.7), frame);
-      top.position.set(x, 3.3, z);
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.3), exit);
-      sign.position.set(x + (s < 0 ? 0.06 : -0.06), 3.75, z);
+      const top = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 2.0), frame);
+      top.position.set(x, h + 2.28, z);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.24), exit);
+      sign.position.set(x + (s < 0 ? 0.06 : -0.06), h + 2.6, z);
       sign.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;
       g.add(door, top, sign);
     }

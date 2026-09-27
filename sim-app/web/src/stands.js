@@ -12,10 +12,14 @@ const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
 // World Z the two end-wall vomitories sit at (see inGap in buildBowl) - exported so venue.js can put an
 // actual entrance door in the outer wall exactly where each aisle leads to it.
 export const AISLE_END_Z = CZ + (cutZ + (-(W / 2) - cutZ) * 0.45);
-// Height of the open concourse behind the top row (must match buildBowl()'s own rows/rise defaults below):
-// the stands step UP from the field floor, so anything meeting them at the back - a door, a rail - has to
-// sit at this height, not at y=0. (This is exactly the bug in the entrance doors: they were built at y=0.)
-export const STAND_TOP_H = 6 * 0.4;
+// Lower tier: 4 rows (was 6 - cut to about 60% height so a real concourse level fits behind it).
+const ROWS = 4, RISE = 0.4, ROW_DEPTH = 1.0, MARGIN = 3.4;
+// Height of the mezzanine concourse floor behind the lower tier. The stands step UP from the field floor,
+// so anything on that level - the doors, the railing, people - sits at this height, not at y=0.
+export const STAND_TOP_H = ROWS * RISE;
+// World Z where the mezzanine ends on the two end walls (the referee-side edge of the stands); a door
+// on an end wall with z below this is on the mezzanine, above it is on the arena floor.
+export const DECK_END_Z = CZ + cutZ;
 
 // Straight-sided rectangle path around the field (sharp corners, no arc - real telescoping bleachers are
 // straight sections bolted together at an angle, not a smooth poured-concrete curve), sampled with the same
@@ -88,7 +92,7 @@ function chairGeometry() {
   return g;
 }
 
-export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 } = {}) {
+export function buildBowl({ rows = ROWS, rowDepth = ROW_DEPTH, rise = RISE, margin = MARGIN } = {}) {
   const group = new THREE.Group();
   const seats = [];
   const nA = 60, nB = 14, nArc = 10;
@@ -100,9 +104,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   // cut in the wall. Two near the ends (close to the concourse by the scoring table) and one on the far side.
   const sB0 = W / 2;   // matches pathSamples' sB (=b) now that corners are sharp (R is always 0)
   const endGapZ = cutZ + (-sB0 - cutZ) * 0.45;   // local Z, same for both end walls
-  // halfW widens for the top two rows: a real venue has a flat, seat-free concourse platform behind the
-  // top row before the wall/door, not seats hard up against the doorway - the door needs clear floor next
-  // to it, not just an aisle exactly its own width (that read as "opens straight into a chair back").
+  // halfW: half the width of the cut; defaults to the aisle width, callers can widen it (railing gap)
   const inGap = (x, z, nx, nz, halfW = entranceW / 2) => {
     const lx = x - CX, lz = z - CZ;
     if (Math.abs(nx) > 0.5) return Math.abs(lz - endGapZ) < halfW;        // end walls (nx = ±1)
@@ -140,8 +142,8 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
     // seats along the mid line of this tier; every 11th seat is an aisle step
     const mid = pathSamples(dIn + rowDepth * 0.62, nA, nB, nArc, R0, cutZ);
-    // the last two rows widen into a flat concourse platform (see inGap) instead of a plain aisle
-    const rowHalfW = r >= rows - 2 ? entranceW / 2 + (r - (rows - 2) + 1) * 1.8 : entranceW / 2;
+    // plain aisle width on every row: the mezzanine behind the top row is now the open landing
+    const rowHalfW = entranceW / 2;
     let dist = 0, next = 0.3, count = 0;
     for (let i = 1; i < mid.length; i++) {
       const p = mid[i - 1], q = mid[i];
@@ -226,8 +228,9 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   // the band sits exactly on the barrier wall: pull it toward the camera in depth so the two never z-fight (flicker)
   const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  // Skips the quad between two consecutive points when its midpoint falls in a vomitory entrance (see inGap).
-  const ribbonH = (pts, y0, y1, mat, uvScale = 1, cutGaps = false) => {
+  // Skips the quad between two consecutive points when either end falls in a vomitory entrance (see inGap);
+  // gapHalfW widens that cut (the railing gap is a bit wider than the aisle so it reads as an opening).
+  const ribbonH = (pts, y0, y1, mat, uvScale = 1, cutGaps = false, gapHalfW = entranceW / 2) => {
     const pos = [], idx = [], uv = [];
     let dist = 0;
     pts.forEach((p, i) => {
@@ -237,7 +240,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
     });
     for (let i = 1; i < pts.length; i++) {
       const p = pts[i - 1], q = pts[i];
-      if (cutGaps && (inGap(p.x, p.z, p.nx, p.nz) || inGap(q.x, q.z, q.nx, q.nz))) continue;
+      if (cutGaps && (inGap(p.x, p.z, p.nx, p.nz, gapHalfW) || inGap(q.x, q.z, q.nx, q.nz, gapHalfW))) continue;
       const a = (i - 1) * 2, b = i * 2;
       idx.push(a, b, a + 1, a + 1, b, b + 1);
     }
@@ -250,24 +253,67 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   group.add(ribbonH(frontIn, 0, 0.9, wallMat));
   group.add(ribbonH(frontIn, 0.55, 0.66, bandMat));
   const backOff = margin + rows * rowDepth + 0.1;
-  const backH = rise * rows + 2.2;
-  const backPts = pathSamples(backOff, nA, nB, nArc, R0, cutZ);
-  // No back wall: this is a convention-hall floor, not a ballpark - the concourse is open air behind the
-  // top row (real telescoping bleachers - see reference photos - are free-standing, entrances are just
-  // walking around or up the open back, nothing boxes them in). Only a low guard rail at the top edge,
-  // like the safety rail on a real bleacher's last row.
-  const guardMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.6, metalness: 0.3 });
-  // cutGaps: true - this rail ran straight across all three entrances before, blocking them
-  group.add(ribbonH(backPts, rise * rows + 0.85, rise * rows + 0.9, guardMat, 1, true)); // top rail bar only
+
+  // ---- Mezzanine concourse ----
+  // A flat floor level behind the lower tier, flush with its top row and running back to the venue wall,
+  // where the entrance doors are. Its outer edge offset (12.45) is where pathSamples meets venue.js's walls
+  // (X0 = -12.5, X1 = L + 12.5, Zfar = -W - 12.5), so the slab fills the gap exactly with no seam.
+  const deckH = rise * rows;
+  const edgeOff = margin + rows * rowDepth;   // outer edge of the top row
+  const wallOff = 12.45;
+  const slabMat = new THREE.MeshStandardMaterial({ color: 0x8c8f93, roughness: 0.45, metalness: 0.05, envMapIntensity: 0.7 });
+  const slab = ribbon(pathSamples(edgeOff, nA, nB, nArc, R0, cutZ), pathSamples(wallOff, nA, nB, nArc, R0, cutZ), deckH, 0, slabMat);
+  slab.receiveShadow = true;
+  group.add(slab);
+  // close the two referee-side ends of the slab (they were open to the arena floor)
+  for (const s of [-1, 1]) {
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(wallOff - edgeOff, deckH, 0.06), slabMat);
+    cap.position.set(CX + s * (L / 2 + (edgeOff + wallOff) / 2), deckH / 2, CZ + cutZ);
+    group.add(cap);
+  }
+
+  // Glass balustrade along the stand side of the mezzanine: a frameless glass panel with a steel handrail
+  // and posts, open where each aisle climbs up onto the concourse (gap a little wider than the aisle).
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xcfe3ee, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide });
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0xc8cdd3, roughness: 0.3, metalness: 0.9 });
+  const railPts = pathSamples(backOff, nA, nB, nArc, R0, cutZ);
+  const railGap = entranceW / 2 + 0.35;
+  group.add(ribbonH(railPts, deckH + 0.05, deckH + 1.0, glassMat, 1, true, railGap));
+  group.add(ribbonH(railPts, deckH + 1.0, deckH + 1.06, steelMat, 1, true, railGap));
   {
     let dist = 0;
-    for (let i = 1; i < backPts.length; i++) {
-      const p = backPts[i - 1], q = backPts[i];
+    for (let i = 1; i < railPts.length; i++) {
+      const p = railPts[i - 1], q = railPts[i];
       const seg = Math.hypot(q.x - p.x, q.z - p.z);
-      if (Math.floor(dist / 1.1) !== Math.floor((dist + seg) / 1.1) && !inGap(q.x, q.z, q.nx, q.nz)) {
-        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), guardMat);
-        post.position.set(q.x, rise * rows + 0.45, q.z);
+      if (Math.floor(dist / 1.5) !== Math.floor((dist + seg) / 1.5) && !inGap(q.x, q.z, q.nx, q.nz, railGap)) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.06, 8), steelMat);
+        post.position.set(q.x, deckH + 0.53, q.z);
         group.add(post);
+      }
+      dist += seg;
+    }
+  }
+  // and across the two open referee-side ends, where the deck drops to the arena floor
+  for (const s of [-1, 1]) {
+    const w = wallOff - backOff;
+    const x = CX + s * (L / 2 + (backOff + wallOff) / 2);
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(w, 0.95, 0.02), glassMat);
+    pane.position.set(x, deckH + 0.525, CZ + cutZ - 0.05);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.06), steelMat);
+    top.position.set(x, deckH + 1.03, CZ + cutZ - 0.05);
+    group.add(pane, top);
+  }
+
+  // standing spots for concourse spectators, just behind the balustrade, kept clear of the aisle landings
+  const deckSpots = [];
+  {
+    const spotPts = pathSamples(backOff + 0.7, nA, nB, nArc, R0, cutZ);
+    let dist = 0;
+    for (let i = 1; i < spotPts.length; i++) {
+      const p = spotPts[i - 1], q = spotPts[i];
+      const seg = Math.hypot(q.x - p.x, q.z - p.z);
+      if (Math.floor(dist / 1.3) !== Math.floor((dist + seg) / 1.3) && !inGap(q.x, q.z, q.nx, q.nz, railGap + 0.6)) {
+        deckSpots.push({ x: q.x, y: deckH, z: q.z, fx: -q.nx, fz: -q.nz });
       }
       dist += seg;
     }
@@ -306,5 +352,5 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   buildRail((off, side) => ({ x: CX + (L / 2 + off), z: CZ + endGapZ + side * halfW }));   // right-end aisle
   buildRail((off, side) => ({ x: CX + side * halfW, z: CZ - (W / 2 + off) }));             // audience-side aisle
 
-  return { group, seats, backOffset: backOff };
+  return { group, seats, deckSpots, backOffset: backOff };
 }

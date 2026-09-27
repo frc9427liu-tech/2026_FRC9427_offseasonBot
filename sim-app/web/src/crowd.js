@@ -32,7 +32,7 @@ const MOOD_CLIP = (mood, stand) => (stand ? 'st_' : '') + mood;
 
 export async function buildCrowd({ occupancy = 0.55, seed = 7 } = {}) {
   const group = new THREE.Group();
-  const bowl = buildBowl({ rows: 6, rowDepth: 1.0, rise: 0.4, margin: 3.4 });
+  const bowl = buildBowl();   // stands.js owns the tier dimensions (STAND_TOP_H etc. are derived from them)
   group.add(bowl.group);
 
   const loader = new GLTFLoader();
@@ -102,6 +102,11 @@ export async function buildCrowd({ occupancy = 0.55, seed = 7 } = {}) {
   for (const seat of bowl.seats) {
     if (rand() > (seat.zone === 'near' ? occupancy * 0.62 : occupancy)) continue; // empty seats
     spawn({ x: seat.x, y: seat.y, z: seat.z, fx: seat.fx, fz: seat.fz, side: seat.x < L / 2 ? 'blue' : 'red' });
+  }
+  // people standing at the mezzanine balustrade, watching the match (like a real concourse between matches)
+  for (const s of bowl.deckSpots) {
+    if (rand() > occupancy * 0.7) continue;
+    spawn({ x: s.x, y: s.y, z: s.z, fx: s.fx, fz: s.fz, stand: true, side: s.x < L / 2 ? 'blue' : 'red' });
   }
 
   // Staff, referees and drive teams standing on the floor (standing clip set); never culled by the density setting.
