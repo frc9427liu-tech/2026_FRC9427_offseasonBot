@@ -28,6 +28,8 @@ export class BallSim {
     starts.forEach(([x, y], i) => { this.p.set([x, y, R], i * 3); this.q.set([0, 0, 0, 1], i * 4); });
     this.dirty = true;
     this._acc = 0;
+    this.queue = [];                         // scored fuel on its way out of a HUB exit
+    this._exit = 0;
   }
 
   park(i, state) { this.state[i] = state; this.p.set([-50, -50, -50], i * 3); this.v.fill(0, i * 3, i * 3 + 3); }
@@ -42,7 +44,19 @@ export class BallSim {
     while (this._acc >= h && steps < 6) { this._sub(h); this._acc -= h; steps++; }
   }
 
+  // Rules: FUEL scored in a HUB is distributed into the NEUTRAL ZONE through one of four exits at the base of the HUB.
+  _release(dt) {
+    this.queue.forEach((e) => { e.t -= dt; });
+    while (this.queue.length && this.queue[0].t <= 0) {
+      const { i, h } = this.queue.shift();
+      const hub = this.hubs[h], dir = hub.x < FIELD_L / 2 ? 1 : -1, k = this._exit++ % 4;
+      const oy = (k - 1.5) * 0.24;   // four exits spread along the face that looks at the neutral zone
+      this.launch(i, [hub.x + dir * (HUB_HALF + R + 0.02), hub.y + oy, R + 0.03], [dir * (1.3 + Math.random() * 0.8), (Math.random() - 0.5) * 0.8, 0.4]);
+    }
+  }
+
   _sub(dt) {
+    this._release(dt);
     const { p, v, n } = this;
     for (let i = 0; i < n; i++) {
       if (this.state[i] !== 0) continue;
@@ -96,6 +110,7 @@ export class BallSim {
       // scored: crossed the opening plane going down, inside the opening
       if (prevZ >= FUNNEL_TOP && p[o + 2] < FUNNEL_TOP && Math.hypot(dx, dy) < OPENING_R && v[o + 2] < 0) {
         this.park(i, 2);
+        this.queue.push({ i, h, t: 0.6 });   // travels through the HUD, then comes out of one of its exits
         if (this.onScore) this.onScore(h, i);
         return;
       }
