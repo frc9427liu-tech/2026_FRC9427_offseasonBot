@@ -62,7 +62,8 @@ sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 buildField().then((f) => scene.add(f));
-scene.add(buildFuel());
+const fuel = buildFuel(events);
+scene.add(fuel);
 scene.add(buildTags());
 scene.add(buildVenue());
 scene.add(buildOfficials());
@@ -71,6 +72,7 @@ scene.add(props.group);
 
 // ---- robot link (bridge to the running robot code) ----
 const link = createRobotLink(scene);
+window.__link = link; // dev hook
 window.__link = link;
 let followRobot = false;
 const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), follow: document.getElementById('dsfollow'), bar: document.getElementById('dsbar') };
@@ -93,9 +95,9 @@ let crowd = null;
 let crowdMode = '自動';
 let slowSince = 0;
 window.__events = events; // dev hook: __events.emit('score', { side: 'blue', points: 1 })
-events.on('score', ({ side, points = 1 }) => {
+events.on('score', ({ side, points = 1, fuel: f = 0 }) => {
   const key = side === 'blue' ? 'blue' : 'red';
-  scoreboards.set({ [key]: scoreboards.state[key] + points });
+  scoreboards.set({ [key]: scoreboards.state[key] + points, [key + 'Fuel']: (scoreboards.state[key + 'Fuel'] || 0) + f });
 });
 buildCrowd().then((c) => {
   crowd = c; wireCrowd(c); scene.add(c.group); console.log('crowd', c.count);
@@ -169,6 +171,7 @@ renderer.setAnimationLoop((t) => {
       if (slowSince > 2.5) { crowd.setDensity(Math.max(0.35, crowd.density - 0.15)); slowSince = 0; }
     } else if (dt <= 0.05) slowSince = 0;
   }
+  fuel.userData.update(Math.min(dt, 0.1), link);
   props.update(t / 1000);
   composer.render();
 });
