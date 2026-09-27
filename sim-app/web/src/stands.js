@@ -178,8 +178,9 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
   // front barrier with a glowing advertising band, and a back wall
   const frontIn = pathSamples(margin - 0.05, nA, nB, nArc, R0, cutZ);
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7 });
-  const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  // the band sits exactly on the barrier wall: pull it toward the camera in depth so the two never z-fight (flicker)
+  const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const ribbonH = (pts, y0, y1, mat) => {
     const pos = [], idx = [];
     pts.forEach((p, i) => { pos.push(p.x, y0, p.z, p.x, y1, p.z); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });

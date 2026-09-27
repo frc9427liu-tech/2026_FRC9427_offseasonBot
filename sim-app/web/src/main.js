@@ -40,7 +40,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.5;
 
-const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 120);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.2, 120);
 const center = new THREE.Vector3(FIELD_L / 2 * IN, 0.4, -FIELD_W / 2 * IN);
 const controls = new OrbitControls(camera, canvas);
 controls.target.copy(center);
@@ -58,6 +58,7 @@ sun.shadow.mapSize.set(4096, 4096);
 const sc = sun.shadow.camera;
 sc.left = -10; sc.right = 10; sc.top = 6; sc.bottom = -6; sc.near = 1; sc.far = 40;
 sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
 scene.add(sun, sun.target);
 
 buildField().then((f) => scene.add(f));
