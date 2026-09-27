@@ -149,7 +149,10 @@ export function buildProps() {
     const door = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.2), gateMat);
     door.position.set(x, 1.6, z);
     door.rotation.y = ry;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 2.9), frame);
+    // width on local X to match PlaneGeometry's own width axis, so rotating both by the same ry keeps
+    // the lintel spanning the doorway instead of poking edge-on into the room (was swapped X/Z - the
+    // beam only happened to look right on the two ry=90 doors and stuck out as a thin peg at ry=0)
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.2, 0.15), frame);
     top.position.set(x, 3.3, z);
     top.rotation.y = ry;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), entrance);
