@@ -127,7 +127,7 @@ export function buildProps() {
   const exit = new THREE.MeshBasicMaterial({ color: 0x25d366 });
   for (const s of [-1, 1]) {
     const x = s < 0 ? -12.45 : L + 12.45;   // just inside the venue end wall (venue.js X0/X1 = ∓12.5)
-    for (const z of [8.5, -3]) {
+    for (const z of [15, -3]) {   // was 8.5: inside the referee-side stand block's own footprint (z 8.4-13.4), blocked by it
       const door = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 3.2), gateMat);
       door.position.set(x, 1.6, z);
       door.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -163,9 +163,12 @@ export function buildProps() {
     const inset = 0.06;
     sign.position.set(x + Math.sin(ry) * inset, h0 + 3.75, z + Math.cos(ry) * inset);
     sign.rotation.y = ry;
-    // a short landing/threshold plate at the door so the floor doesn't just stop under it
-    const landing = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
-    landing.rotation.x = -Math.PI / 2;
+    // a short landing/threshold plate at the door so the floor doesn't just stop under it. A thin box
+    // rather than a rotated plane - a plane needs its OWN rotation.y to line its width up with the
+    // doorway before being laid flat, and composing that with the flat-lay rotation.x was never right
+    // (it read as a skewed quad, not flush with the door) - a box just rotates about Y like everything else.
+    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.01, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
+    landing.rotation.y = ry;
     landing.position.set(x + Math.sin(ry) * 0.5, h0 + 0.005, z + Math.cos(ry) * 0.5);
     g.add(door, top, sign, landing);
   };

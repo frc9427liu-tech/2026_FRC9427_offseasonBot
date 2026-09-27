@@ -98,10 +98,11 @@ export function buildOfficials() {
     const lid = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.015), dark);
     lid.position.set(x, 0.91, tz + 0.17);
     lid.rotation.x = -0.25;
+    // no rotation.y here: the screen has to face the official standing behind the table (+Z), not the
+    // field (-Z) - it was flipped to face the wrong way
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.2), screen);
     scr.position.set(x, 0.91, tz + 0.158);
     scr.rotation.x = -0.25;
-    scr.rotation.y = Math.PI;
     g.add(base, lid, scr);
   }
   // Cable covers running from the table to the field edge

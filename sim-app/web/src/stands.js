@@ -11,27 +11,28 @@ const R0 = 2.4;
 const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
 // World Z the two end-wall vomitories sit at (see inGap in buildBowl) - exported so venue.js can put an
 // actual entrance door in the outer wall exactly where each aisle leads to it.
-export const AISLE_END_Z = CZ + (cutZ + (-(W / 2 - R0) - cutZ) * 0.45);
+export const AISLE_END_Z = CZ + (cutZ + (-(W / 2) - cutZ) * 0.45);
 // Height of the open concourse behind the top row (must match buildBowl()'s own rows/rise defaults below):
 // the stands step UP from the field floor, so anything meeting them at the back - a door, a rail - has to
 // sit at this height, not at y=0. (This is exactly the bug in the entrance doors: they were built at y=0.)
 export const STAND_TOP_H = 6 * 0.4;
 
-// Parallel rounded-rectangle path around the field, sampled with the same parameter for every offset so
-// neighbouring tiers line up. Local coords: X along the field length, Z toward the scoring table (+Z = table side).
+// Straight-sided rectangle path around the field (sharp corners, no arc - real telescoping bleachers are
+// straight sections bolted together at an angle, not a smooth poured-concrete curve), sampled with the same
+// parameter for every offset so neighbouring tiers line up. Local coords: X along the field length, Z
+// toward the scoring table (+Z = table side). nArc/R0 stay in the signature but are now ignored, so every
+// call site below keeps working unedited.
 function pathSamples(off, nStraightA, nStraightB, nArc, R0, cutZ) {
-  const a = L / 2 + off, b = W / 2 + off, R = R0 + off;
-  const sA = a - R, sB = b - R;
+  const a = L / 2 + off, b = W / 2 + off;
+  const sA = a, sB = b;
   const pts = [];
   const push = (X, Z, nx, nz) => pts.push({ x: CX + X, z: CZ + Z, nx, nz }); // n = outward normal
   // left end, near -> far (Z from cutZ down to -sB)
   for (let i = 0; i <= nStraightB; i++) { const Z = cutZ + (-sB - cutZ) * (i / nStraightB); push(-a, Z, -1, 0); }
-  // audience-left corner: center (-sA, -sB), angle pi -> 3pi/2
-  for (let i = 1; i <= nArc; i++) { const t = Math.PI + (Math.PI / 2) * (i / nArc); push(-sA + R * Math.cos(t), -sB + R * Math.sin(t), Math.cos(t), Math.sin(t)); }
+  // sharp corner at (-sA, -sB): that point was already the end segment's last point above, so start at i=1
   // audience straight
   for (let i = 1; i < nStraightA; i++) { const X = -sA + 2 * sA * (i / nStraightA); push(X, -b, 0, -1); }
-  // audience-right corner: center (sA, -sB), 3pi/2 -> 2pi
-  for (let i = 0; i <= nArc; i++) { const t = 1.5 * Math.PI + (Math.PI / 2) * (i / nArc); push(sA + R * Math.cos(t), -sB + R * Math.sin(t), Math.cos(t), Math.sin(t)); }
+  push(sA, -b, 0, -1);   // sharp corner at (sA, -sB): the right end segment's first point below is the same one
   // right end, far -> near
   for (let i = 1; i <= nStraightB; i++) { const Z = -sB + (cutZ + sB) * (i / nStraightB); push(a, Z, 1, 0); }
   return pts;
@@ -97,7 +98,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   // regardless of tier offset (sA, sB, cutZ are all offset-independent - see pathSamples), so the same test
   // lines up every tier from the front barrier to the back wall into one real radial aisle, not just a gap
   // cut in the wall. Two near the ends (close to the concourse by the scoring table) and one on the far side.
-  const sA0 = L / 2 - R0, sB0 = W / 2 - R0;
+  const sB0 = W / 2;   // matches pathSamples' sB (=b) now that corners are sharp (R is always 0)
   const endGapZ = cutZ + (-sB0 - cutZ) * 0.45;   // local Z, same for both end walls
   const inGap = (x, z, nx, nz) => {
     const lx = x - CX, lz = z - CZ;
