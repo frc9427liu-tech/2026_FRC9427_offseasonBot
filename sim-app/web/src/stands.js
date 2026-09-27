@@ -50,6 +50,28 @@ function ribbon(inner, outer, hTop, hBottom, mat) {
   return m;
 }
 
+// Concrete/precast panel look for the tall back wall: without it, a flat navy slab this size reads as a
+// sheer fake cliff rather than the poured/tiled retaining wall a real bowl sits against.
+function backWallTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#232a3a';
+  g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = 'rgba(10,16,28,.6)';
+  g.lineWidth = 2;
+  for (let y = 0; y <= 256; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
+  for (let x = 0; x <= 256; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }
+  for (let i = 0; i < 900; i++) {
+    const v = Math.random() < 0.5 ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.05)';
+    g.fillStyle = v;
+    g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 function chairGeometry() {
   const parts = [];
   const box = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); parts.push(g); };
@@ -71,6 +93,9 @@ function chairGeometry() {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  // material.vertexColors needs a per-vertex 'color' attribute to multiply against (plain white: the actual
+  // colour comes entirely from each instance's instanceColor, set per-chair below)
+  g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(pos.length).fill(1), 3));
   g.setIndex(idx);
   return g;
 }
@@ -95,7 +120,10 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
   const prev = pathSamples(margin, nA, nB, nArc, R0, cutZ);
   const chairGeo = chairGeometry();
-  const chairMat = new THREE.MeshStandardMaterial({ color: 0x2a4f95, roughness: 0.55, metalness: 0.1 });
+  // base white: per-instance colour (below) supplies the actual blue, since three.js multiplies the two
+  // vertexColors: true is what actually turns on per-instance colour multiplication (instanceColor alone
+  // is silently ignored by the standard material shader without it)
+  const chairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0.1, vertexColors: true });
   const chairs = [];
 
   for (let r = 0; r < rows; r++) {
@@ -172,7 +200,16 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   }
 
   const inst = new THREE.InstancedMesh(chairGeo, chairMat, chairs.length);
-  chairs.forEach((m, i) => inst.setMatrixAt(i, m));
+  const seatColor = new THREE.Color();
+  chairs.forEach((m, i) => {
+    inst.setMatrixAt(i, m);
+    // real bleacher seats are never one flat colour: age, moulding batch and grime vary each shell a little.
+    // Color.setRGB takes linear components by default (no sRGB decode) - setHex does decode, so build the
+    // variation from that instead of writing the sRGB 0x2a4f95 floats directly (which read ~2x too bright).
+    const k = 0.85 + Math.random() * 0.3;
+    seatColor.setHex(0x2a4f95).multiplyScalar(k);
+    inst.setColorAt(i, seatColor);
+  });
   inst.castShadow = false; inst.receiveShadow = true;
   group.add(inst);
 
@@ -181,18 +218,32 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   // the band sits exactly on the barrier wall: pull it toward the camera in depth so the two never z-fight (flicker)
   const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const ribbonH = (pts, y0, y1, mat) => {
-    const pos = [], idx = [];
-    pts.forEach((p, i) => { pos.push(p.x, y0, p.z, p.x, y1, p.z); if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); } });
+  const ribbonH = (pts, y0, y1, mat, uvScale = 1) => {
+    const pos = [], idx = [], uv = [];
+    let dist = 0;
+    pts.forEach((p, i) => {
+      if (i) dist += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+      pos.push(p.x, y0, p.z, p.x, y1, p.z);
+      uv.push(dist * uvScale, 0, dist * uvScale, (y1 - y0) * uvScale);
+      if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, mat); m.material.side = THREE.DoubleSide; return m;
   };
   group.add(ribbonH(frontIn, 0, 0.9, wallMat));
   group.add(ribbonH(frontIn, 0.55, 0.66, bandMat));
   const backOff = margin + rows * rowDepth + 0.1;
-  group.add(ribbonH(pathSamples(backOff, nA, nB, nArc, R0, cutZ), 0, rise * rows + 2.2, wallMat));
+  const backH = rise * rows + 2.2;
+  const backTex = backWallTexture();
+  backTex.repeat.set(1, 1);
+  const backWallMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.85 });
+  const backPts = pathSamples(backOff, nA, nB, nArc, R0, cutZ);
+  group.add(ribbonH(backPts, 0, backH, backWallMat, 0.35));
+  // a lighter coping strip at the top gives the wall a defined edge instead of just stopping
+  group.add(ribbonH(backPts, backH - 0.14, backH + 0.02, new THREE.MeshStandardMaterial({ color: 0x9aa1ab, roughness: 0.6 })));
 
   return { group, seats, backOffset: backOff };
 }

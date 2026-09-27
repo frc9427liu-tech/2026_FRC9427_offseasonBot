@@ -50,7 +50,9 @@ function wallTexture() {
 export function buildVenue() {
   const g = new THREE.Group();
   const cx = L / 2, cz = -W / 2;
-  const X0 = -17, X1 = L + 17, Zfar = -W - 15.5, Znear = 17, H = 13;
+  // Concourse depth beyond the stands' back wall: was ~6-7.5 m of bare dead floor on three sides (the stands
+  // back wall stops around field-edge + 9.5 m); tightened to a walkable ~3 m so the room isn't mostly empty.
+  const X0 = -12.5, X1 = L + 12.5, Zfar = -W - 12.5, Znear = 17, H = 13;
 
   // Floor: polished concrete beyond the field
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 4, Znear - Zfar + 4),

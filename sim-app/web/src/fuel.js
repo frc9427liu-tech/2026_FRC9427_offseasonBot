@@ -46,7 +46,7 @@ function fuelTexture() {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#f6e100';
+  g.fillStyle = '#dcb800';   // a shade deeper/more mustard than the first pass, less lemon-neon
   g.fillRect(0, 0, 512, 256);
   // fine pebble grain: tiny randomized specks, slightly lighter and darker than the base
   for (let i = 0; i < 3200; i++) {
