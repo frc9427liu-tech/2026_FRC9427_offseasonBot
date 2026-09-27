@@ -176,6 +176,27 @@ export function buildVenue() {
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(cx, H, (Znear + Zfar) / 2);
   g.add(ceil);
+  // Two long clerestory skylight strips (a raised centre-roof monitor letting warm light wash down the
+  // trusses - the reference's angled, glowing ceiling look) plus one big dome pendant over mid-field,
+  // instead of only small even can-lights everywhere.
+  for (const sx of [cx - (X1 - X0) * 0.22, cx + (X1 - X0) * 0.22]) {
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(3.2, Znear - Zfar - 4), new THREE.MeshStandardMaterial({ color: 0xffe9bf, emissive: 0xffcf7a, emissiveIntensity: 1.1, roughness: 0.6, side: THREE.DoubleSide }));
+    sky.rotation.x = Math.PI / 2;
+    sky.position.set(sx, H - 0.02, (Znear + Zfar) / 2);
+    g.add(sky);
+  }
+  const domeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.35, metalness: 0.5 });
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.9, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), domeMat);
+  dome.rotation.x = Math.PI; dome.position.set(cx, H - 3.6, (Znear + Zfar) / 2);
+  const domeGlow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20), new THREE.MeshBasicMaterial({ color: 0xffe0ad }));
+  domeGlow.rotation.x = Math.PI / 2; domeGlow.position.set(cx, H - 4.05, (Znear + Zfar) / 2);
+  const domeRod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.6, 6), domeMat);
+  domeRod.position.set(cx, H - 1.8, (Znear + Zfar) / 2);
+  g.add(dome, domeGlow, domeRod);
+  const domeLight = new THREE.PointLight(0xffdca0, 22, 12, 1.4);
+  domeLight.position.set(cx, H - 4.1, (Znear + Zfar) / 2);
+  g.add(domeLight);
+
   const steel = new THREE.MeshStandardMaterial({ color: 0x6d7580, roughness: 0.5, metalness: 0.8 });
   const nTruss = 8;
   const spots = [];

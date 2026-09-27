@@ -108,7 +108,9 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   };
 
   const deck = new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-  const stairMat = new THREE.MeshStandardMaterial({ color: 0x2f3744, roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  // lighter than the deck (was almost the same tone as the seats/deck, unreadable as a step) so the aisle
+  // steps actually read as a lit tread, matching the high-contrast white-edged stairs in the reference photo
+  const stairMat = new THREE.MeshStandardMaterial({ color: 0xd8d3c4, roughness: 0.5, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
 
   // arena floor apron: a lighter carpet strip around the field so the field edge sits on a real floor
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(L + 2 * margin + 0.4, W + 2 * margin + 0.4),
