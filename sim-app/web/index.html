@@ -8,6 +8,8 @@
 </head>
 <body class="lobby">
 <canvas id="view"></canvas>
+<!-- LOBBY state: menus only. Detached from the page while a simulation runs (main.js setAppState). -->
+<div id="lobbyRoot">
 <div id="shade"></div>
 
 <header id="topbar">
@@ -49,11 +51,21 @@
   </div>
 </div>
 
+</div>
+
+<!-- IN-GAME state: only the match HUD. Attached only while a simulation runs. -->
+<div id="gameRoot">
+<div id="hud">
+  <button id="hudExit" class="hud-exit" title="Esc">‹ <span id="hudExitLabel">離開</span></button>
+  <div class="hud-score"><span class="hs-b" id="hudBlue">0</span><span class="hs-t"><b id="hudTime">--:--</b><small id="hudPhase"></small></span><span class="hs-r" id="hudRed">0</span></div>
+  <span class="pill" id="hudFps">-- FPS</span>
+</div>
 <div id="dsbar" hidden>
   <span class="ds-chip" id="dsstate">ROBOT: --</span>
   <button class="ds-btn" id="dsen">ENABLE</button>
   <button class="ds-btn" id="dsmode">TELEOP</button>
   <button class="ds-btn" id="dsfollow">FOLLOW</button>
+</div>
 </div>
 
 <script type="module" src="./src/main.js"></script>

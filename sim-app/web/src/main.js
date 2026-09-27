@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
 import { initUI, setControlsInfo, setRobotDesc } from './ui.js';
+import { t as tr } from './i18n.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
@@ -99,7 +100,7 @@ link.onStatus = (l) => {
 dsEl.en.onclick = () => link.setDs({ enabled: !link.ds.enabled });
 dsEl.mode.onclick = () => link.setDs({ autonomous: !link.ds.autonomous });
 dsEl.follow.onclick = () => { followRobot = !followRobot; dsEl.follow.classList.toggle('on', followRobot); };
-addEventListener('keydown', (e) => { if (e.code === 'Enter' && document.body.classList.contains('playing')) link.setDs({ enabled: !link.ds.enabled }); });
+addEventListener('keydown', (e) => { if (e.code === 'Enter' && appState === 'game') link.setDs({ enabled: !link.ds.enabled }); });
 const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
 scoreboards.set({ blue: 42, red: 37, blueFuel: 58, redFuel: 51, time: 118, phase: 'TELEOP' }); // demo values until the match engine drives it
@@ -126,7 +127,8 @@ const VIEWS = {
   table: () => setView([center.x - 3, 2.6, -W_M - 2.5], new THREE.Vector3(center.x + 1, 1.2, 4)),
   stands: () => setView([center.x - 2, 2.6, center.z - 1.5], new THREE.Vector3(center.x + 1, 2.0, center.z - 8.5)),
   hubBlue: () => setView([181.56 * IN + 2.6, 1.9, -158.3 * IN + 0.6], new THREE.Vector3(181.56 * IN, 1.1, -158.3 * IN)),
-  top: () => setView([center.x, 19, center.z + 0.01], center),
+  // high and a little toward the scoring table: straight down from under the roof would look onto the top of the centre-hung scoreboard
+  top: () => setView([center.x, 12, center.z + 5.5], center),
   scoreboard: () => setView([FIELD_L * IN - 2, 2.2, center.z + 0.3], new THREE.Vector3(-0.25, 2.9, center.z)),
   blue: () => setView([-1.5, 3.4, center.z], new THREE.Vector3(center.x - 3, 0.6, center.z)),
   red: () => setView([FIELD_L * IN + 1.5, 3.4, center.z], new THREE.Vector3(center.x + 3, 0.6, center.z)),
@@ -166,16 +168,76 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-// Slow orbit while in the menu
-let menuMode = true;
-let last = performance.now(), frames = 0, acc = 0;
+// ---------- app states: LOBBY and GAME are two separate screens ----------
+// LOBBY: only the menus exist in the page; the 3D view behind them is a cheap backdrop (no post-processing,
+//   reduced resolution, ~20 fps, no crowd animation, no fuel physics, shadows frozen).
+// GAME: the lobby DOM is detached from the page entirely and only the match HUD is mounted; the renderer
+//   gets full resolution, post-processing and every simulation step. Esc / the HUD exit button goes back.
+const lobbyRoot = document.getElementById('lobbyRoot');
+const gameRoot = document.getElementById('gameRoot');
+const hud = { blue: document.getElementById('hudBlue'), red: document.getElementById('hudRed'), time: document.getElementById('hudTime'), phase: document.getElementById('hudPhase'), fps: document.getElementById('hudFps'), exit: document.getElementById('hudExit'), exitLabel: document.getElementById('hudExitLabel') };
 const fpsEl = document.getElementById('fps');
+gameRoot.remove();
+let appState = 'lobby';
+let qualityPR = Math.min(devicePixelRatio, 2);   // the in-game pixel ratio (Settings > Display > Quality)
+function applyPixelRatio() {
+  renderer.setPixelRatio(appState === 'game' ? qualityPR : Math.min(qualityPR, 1) * 0.75);
+  composer.setPixelRatio(renderer.getPixelRatio());
+  resize();
+}
+applyPixelRatio();   // start in the lobby's cheap backdrop mode
+let hudTimer = 0;
+function updateHud() {
+  const s = scoreboards.state;
+  hud.blue.textContent = s.blue ?? 0;
+  hud.red.textContent = s.red ?? 0;
+  const tm = Math.max(0, Math.round(s.time ?? 0));
+  hud.time.textContent = `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`;
+  hud.phase.textContent = s.phase || '';
+}
+function setAppState(next) {
+  if (next === appState) return;
+  appState = next;
+  if (next === 'game') {
+    lobbyRoot.remove();
+    document.body.append(gameRoot);
+    document.body.classList.replace('lobby', 'playing');
+    hud.exitLabel.textContent = tr('離開');
+    renderer.shadowMap.autoUpdate = true;
+    updateHud(); hudTimer = setInterval(updateHud, 250);
+    VIEWS.top();
+  } else {
+    link.setDs({ enabled: false });   // leaving the match disables the robot, like closing the Driver Station
+    followRobot = false; dsEl.follow.classList.remove('on');
+    clearInterval(hudTimer);
+    gameRoot.remove();
+    document.body.insertBefore(lobbyRoot, canvas.nextSibling);
+    document.body.classList.replace('playing', 'lobby');
+    VIEWS.hero();
+  }
+  applyPixelRatio();
+}
+hud.exit.onclick = () => setAppState('lobby');
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && appState === 'game') setAppState('lobby'); });
+
+let last = performance.now(), frames = 0, acc = 0, lastLobbyFrame = 0;
 renderer.setAnimationLoop((t) => {
+  if (appState === 'lobby') {
+    if (t - lastLobbyFrame < 50) return;   // ~20 fps backdrop
+    const dt = (t - (lastLobbyFrame || t)) / 1000;
+    lastLobbyFrame = t; last = t;
+    acc += dt; frames++;
+    if (acc > 0.5) { fpsEl.textContent = `${Math.round(frames / acc)} FPS`; acc = 0; frames = 0; }
+    controls.autoRotate = true; controls.autoRotateSpeed = 0.35 * 3;   // x3: fewer frames per second
+    controls.update();
+    renderer.shadowMap.autoUpdate = false;   // shadows stay as last rendered
+    renderer.render(scene, camera);
+    return;
+  }
   const dt = (t - last) / 1000; last = t;
   acc += dt; frames++;
-  if (acc > 0.5) { fpsEl.textContent = `${Math.round(frames / acc)} FPS`; acc = 0; frames = 0; }
-  if (menuMode) controls.autoRotate = true, controls.autoRotateSpeed = 0.35;
-  else controls.autoRotate = false;
+  if (acc > 0.5) { hud.fps.textContent = `${Math.round(frames / acc)} FPS`; acc = 0; frames = 0; }
+  controls.autoRotate = false;
   controls.update();
   if (followRobot && link.robot.visible) {
     const p = link.robot.position;
@@ -195,15 +257,11 @@ renderer.setAnimationLoop((t) => {
   props.update(t / 1000);
   composer.render();
 });
-
 // ---------- UI ----------
 const VIEW_NAMES = { '總覽': 'hero', '俯視': 'top', '藍方': 'blue', '紅方': 'red' };
 const uiApi = initUI({
   onStart: () => {
-    document.body.classList.remove('lobby');
-    document.body.classList.add('playing');
-    menuMode = false;
-    VIEWS.top();
+    setAppState('game');
     if (link.connected && !link.running) link.start();
   },
   onPreview: (on) => { if (on) VIEWS.top(); else VIEWS.hero(); },
@@ -211,7 +269,7 @@ const uiApi = initUI({
     if (k === 'crowd') { crowdMode = v; if (crowd && v !== '自動') crowd.setDensity(v === '低' ? 0.35 : v === '中' ? 0.7 : 1); }
     if (k === 'shadows') renderer.shadowMap.enabled = !!v;
     if (k === 'quality') ao.enabled = v === '高';
-    if (k === 'quality') renderer.setPixelRatio(v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+    if (k === 'quality') { qualityPR = v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2); applyPixelRatio(); }
     if (k === 'touch') touchUI.setMode(v);
     if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
   },
@@ -224,21 +282,3 @@ if (link.controls) link.onControls(link.controls);
 // ROBOT > 機構描述 edits the description the fuel rules read (link.desc); the bridge saves it per project
 link.onDesc = (desc) => { setRobotDesc(desc, { getState: () => link.state, save: (d) => link.saveDesc(d), motors: link.descMotors }); uiApi.refresh(); };
 if (link.desc) link.onDesc(link.desc);
-addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.body.classList.contains('playing')) {
-    document.body.classList.remove('playing');
-    document.body.classList.add('lobby');
-    menuMode = true;
-    VIEWS.hero();
-  }
-});
-
-
-
-
-
-
-
-
-
-

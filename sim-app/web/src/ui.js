@@ -1,7 +1,11 @@
 // Lobby / mode select / modal UI. Pure DOM, no framework.
 import { bindings, setBinding, resetBindings, keyLabel, AXIS_CONTROLS } from './robot.js';
 import { t, tf, LANGS, getLang, setLang } from './i18n.js';
-const $ = (id) => document.getElementById(id);
+// Element refs are cached on first lookup: the whole lobby is detached from the document while a simulation
+// runs (main.js setAppState), and getElementById can't find detached nodes.
+const elCache = {};
+const $ = (id) => elCache[id] || (elCache[id] = document.getElementById(id));
+const LOBBY_IDS = ['dock', 'cards', 'rail', 'modelist', 'prevtag', 'modelabel', 'startsub', 'modebtn', 'modes', 'mtitle', 'mlist', 'mcontent', 'modal', 'start'];
 
 export const settings = {
   quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中', touch: '自動',
@@ -178,11 +182,12 @@ export function setRobotDesc(desc, { getState, save, motors } = {}) {
 }
 
 export function initUI({ onStart, onPreview, onSettingChange }) {
+  LOBBY_IDS.forEach($);   // cache while everything is still attached
   // dock + cards
   const renderLobby = () => {
   $('dock').innerHTML = DOCK.map((d) => `<button class="dock-item" data-open="${d.id}"><span class="g">${d.g}</span>${t(d.label)}</button>`).join('');
   $('cards').innerHTML = CARDS.map((c) => `<button class="ecard"><span class="glyph">${c.g}</span><span>${t(c.t)}<small>${t(c.s)}</small></span></button>`).join('');
-  document.querySelector('#modes h2').textContent = t('模式選擇');
+  $('modes').querySelector('h2').textContent = t('模式選擇');
   document.querySelectorAll('[data-open="settings"][title]').forEach((b) => { b.title = t('設定'); });
   };
   renderLobby();
@@ -246,7 +251,7 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
   // live signal values next to each source, without re-rendering (so a field being typed in keeps focus)
   setInterval(() => {
     if ($('modal').hidden) return;
-    document.querySelectorAll('#mcontent [data-live]').forEach((s) => { s.textContent = liveText(getPath(descCtx.desc, s.dataset.live)); });
+    $('mcontent').querySelectorAll('[data-live]').forEach((s) => { s.textContent = liveText(getPath(descCtx.desc, s.dataset.live)); });
   }, 400);
   $('mlist').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { mpage = +b.dataset.p; renderModal(); } };
   $('mcontent').onclick = (e) => {

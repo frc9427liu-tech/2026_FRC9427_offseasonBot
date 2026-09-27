@@ -18,7 +18,7 @@ const EN = {
   // dock / lobby
   機器人: 'Robot', 場地: 'Field', 操作: 'Controls', 設定: 'Settings',
   新手教學: 'Tutorial', '5 分鐘學會操作': 'Learn the controls in 5 minutes', 'Fuel / Hub / Tower 規則': 'Fuel / Hub / Tower rules',
-  線上房間: 'Online rooms', 即將開放: 'Coming soon', 模式選擇: 'Select mode',
+  線上房間: 'Online rooms', 離開: 'Exit', 即將開放: 'Coming soon', 模式選擇: 'Select mode',
   // modes
   比賽: 'Match', 正式比賽: 'Official match', 資格賽: 'Qualification', '3v3 · 完整計分 · 2:40': '3v3 · full scoring · 2:40',
   單機器人: 'Solo robot', '1v0 · 練習計分': '1v0 · practice scoring',
