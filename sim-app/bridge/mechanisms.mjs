@@ -18,7 +18,12 @@ function walk(dir, out = []) {
 
 // Evaluate "287.0 / 11.0", "4.71", "2 * Math.PI" ... (numbers and + - * / ( ) only).
 function evalNumber(expr) {
-  const s = expr.replace(/Math\.PI/g, String(Math.PI)).replace(/\b(\d+(?:\.\d+)?)[dDfF]\b/g, '$1');
+  const s = expr
+    .replace(/Math\.PI|\bPI\b/g, String(Math.PI))
+    .replace(/(?:\w+\.)*inchesToMeters\s*\(/g, '0.0254*(')
+    .replace(/(?:\w+\.)*feetToMeters\s*\(/g, '0.3048*(')
+    .replace(/(?:\w+\.)*degreesToRadians\s*\(/g, `${Math.PI / 180}*(`)
+    .replace(/\b(\d+(?:\.\d+)?)[dDfF]\b/g, '$1');
   if (!/^[\d\s+\-*/().eE]+$/.test(s)) return null;
   try { const v = Function(`"use strict"; return (${s});`)(); return Number.isFinite(v) ? v : null; } catch { return null; }
 }
@@ -63,6 +68,29 @@ export function deriveMechanisms(projectDir) {
       result.links.push({ sensor: `CANcoder (v6)[${enc}]`, motor: `Talon FX (v6)[${c[key]}]`, ratio, note: `swerve ${m[1]} steer` });
     }
   } else if (ratioExpr) result.notes.push(`could not evaluate RotorToSensorRatio (${ratioExpr.trim()})`);
+
+  // swerve chassis: module <Name> = FL/FR/BL/BR; position from wheel base / track width, ratios from the constants
+  const gyroId = c.kPigeonId;
+  const driveRatio = c.kDriveGearRatio, wheelRadius = c.kWheelRadius;
+  const wb = c.kWheelBase, tw = c.kTrackWidth;
+  const modules = [];
+  if (driveRatio && wheelRadius && wb && tw) {
+    for (const key of Object.keys(c)) {
+      const m = /^k(FL|FR|BL|BR)DriveId$/.exec(key);
+      if (!m) continue;
+      const n = m[1], enc = c[`k${n}EncoderId`];
+      if (enc == null) continue;
+      modules.push({ name: n, drive: `Talon FX (v6)[${c[key]}]`, encoder: `CANcoder (v6)[${enc}]`, x: (n[0] === 'F' ? 1 : -1) * wb / 2, y: (n[1] === 'L' ? 1 : -1) * tw / 2 });
+    }
+  }
+  // HALSim reports motor voltage/rotor motion in the raw CCW-positive frame: a Clockwise_Positive motor's wheel
+  // therefore travels the opposite way to its raw rotor motion (the code's own +velocity = wheel forward).
+  const invertedText = files.map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+  for (const mod of modules) {
+    const cw = new RegExp(`k${mod.name}DriveInverted\\s*=\\s*(?:\\w+\\.)*Clockwise_Positive`).test(invertedText);
+    mod.userSign = cw ? -1 : 1;
+  }
+  if (modules.length) result.chassis = { type: 'swerve', modules, driveRatio, wheelRadius, gyro: gyroId != null ? `Pigeon 2 (v6)[${gyroId}]` : null };
 
   const custom = path.join(here, '..', 'mechanisms', `${path.basename(projectDir)}.json`);
   if (fs.existsSync(custom)) {

@@ -1,4 +1,4 @@
-﻿// Generic motor physics for any robot project: reads the voltage the robot code commands on each virtual
+// Generic motor physics for any robot project: reads the voltage the robot code commands on each virtual
 // CAN motor (HALSim "CANMotor:*") and writes back the rotor position/velocity of the paired
 // "CANEncoder:*/Rotor Sensor", so closed-loop code (PID, MotionMagic, velocity control) sees a real response.
 // Motor constants are per motor type; load (inertia, friction, hard stops) comes from the mechanism description.
@@ -10,10 +10,10 @@ const MOTORS = {
   'default': { freeRps: 100, stallNm: 7.09, stallA: 366 },
 };
 
-// Measured with a swerve project whose velocity loops ran away to +-12 V: HALSim's "<motorVoltage" and the
-// Rotor Sensor input have opposite sign conventions, so the motor's own rotor sensor is fed back negated.
-// (External sensors such as a CANcoder are positive and unaffected.)
-const ROTOR_SENSOR_SIGN = -1;
+// The Rotor Sensor input is in HALSim's raw frame (positive = positive voltage); Phoenix applies the motor's
+// Inverted setting itself when the robot code reads it back. (An earlier -1 here only looked stable: it fed the
+// back-EMF the wrong way round and pinned Phoenix's simulated current limit at ~0.7 V.)
+export const ROTOR_SENSOR_SIGN = 1;
 
 const DEFAULT_LOAD = { inertia: 0.002, friction: 0.01, minRot: -Infinity, maxRot: Infinity };
 
@@ -54,6 +54,7 @@ export class MotorSim {
       const volts = devices[key]['<motorVoltage'] ?? 0;
       const { R, Kt, Ke } = m.p;
       const { inertia, friction, minRot, maxRot } = m.load;
+      const sign = ROTOR_SENSOR_SIGN;
       // rotor rad/s. A few sub-steps keep the stiff electrical term stable at low inertia.
       const n = 4, h = dt / n;
       for (let i = 0; i < n; i++) {
@@ -64,7 +65,7 @@ export class MotorSim {
         if (m.pos < minRot) { m.pos = minRot; if (m.vel < 0) m.vel = 0; }
         if (m.pos > maxRot) { m.pos = maxRot; if (m.vel > 0) m.vel = 0; }
       }
-      out.push({ type: 'CANEncoder', device: `${name}/Rotor Sensor`, data: { '>rawPositionInput': ROTOR_SENSOR_SIGN * m.pos, '>velocity': ROTOR_SENSOR_SIGN * m.vel / (2 * Math.PI) } });
+      out.push({ type: 'CANEncoder', device: `${name}/Rotor Sensor`, data: { '>rawPositionInput': sign * m.pos, '>velocity': sign * m.vel / (2 * Math.PI) } });
       for (const l of this.links) {
         if (l.motor !== name) continue;
         const r = (l.ratio || 1) * (l.invert ? -1 : 1);
@@ -76,6 +77,7 @@ export class MotorSim {
 
   // rotor state for the UI (mechanism animation): name -> {pos (rev), vel (rev/s)}
   snapshot() {
+    // rotor motion in HALSim's raw frame (positive = positive commanded voltage)
     return Object.fromEntries([...this.motors].map(([k, m]) => [k, { pos: m.pos, vel: m.vel / (2 * Math.PI) }]));
   }
 }

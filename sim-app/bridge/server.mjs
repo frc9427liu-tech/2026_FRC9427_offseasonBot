@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeProject } from './analyze.mjs';
 import { MotorSim } from './motorsim.mjs';
+import { SwerveChassis } from './chassis.mjs';
 import { deriveMechanisms } from './mechanisms.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -29,7 +30,7 @@ const broadcast = (msg) => clients.forEach((c) => send(c, msg));
 let mechInfo = null;
 let controlsInfo = null, watcher = null, watchTimer = null;
 function analyze(projectDir) {
-  try { const mech = deriveMechanisms(projectDir); motorSim.setMechanisms(mech); mechInfo = mech; } catch (e) { console.error('mechanisms:', e); }
+  try { const mech = deriveMechanisms(projectDir); motorSim.setMechanisms(mech); chassis.configure(mech.chassis); mechInfo = mech; } catch (e) { console.error('mechanisms:', e); }
   try { controlsInfo = analyzeProject(projectDir); } catch (e) { controlsInfo = { ok: false, error: String(e.message || e) }; }
   broadcast({ t: 'controls', data: controlsInfo });
 }
@@ -152,6 +153,7 @@ setInterval(() => { pushDs(); for (const i of Object.keys(joys)) pushJoy(i); }, 
 
 // ---------- generic motor physics: commanded voltage -> rotor position/velocity feedback ----------
 const motorSim = new MotorSim();
+const chassis = new SwerveChassis();
 let lastMotorT = performance.now();
 setInterval(() => {
   const now = performance.now();
@@ -159,6 +161,7 @@ setInterval(() => {
   lastMotorT = now;
   if (!hal || hal.readyState !== 1) return;
   for (const msg of motorSim.step(dt, state.hal.devices)) hal.send(JSON.stringify(msg));
+  for (const msg of chassis.step(dt, state.hal.devices, motorSim.snapshot())) hal.send(JSON.stringify(msg));
 }, 10);
 
 // ---------- summary to the UI ----------
@@ -177,7 +180,11 @@ function summary() {
     t: 'state',
     robot: { running: state.robot.running, project: state.robot.project },
     hal: state.hal.connected, nt: state.nt.connected,
-    pose: Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
+    // simulated chassis (from the real wheels) when the robot is a known drivetrain, else whatever the code publishes
+    pose: chassis.cfg && state.robot.running ? [chassis.pose.x, chassis.pose.y, (chassis.pose.theta * 180) / Math.PI]
+      : Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
+    chassisDebug: chassis.debug,
+    robotPose: Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
     ds, motors, values: numeric, rotors: motorSim.snapshot(),
     gyro: Object.fromEntries(Object.entries(state.hal.devices).filter(([k]) => k.startsWith('CANGyro:')).map(([k, v]) => [k.slice(8), v['<yaw'] ?? 0])),
   };
@@ -195,6 +202,7 @@ wss.on('connection', (ws) => {
     let m; try { m = JSON.parse(raw); } catch { return; }
     if (m.t === 'start') send(ws, { t: 'startResult', ...startRobot(m.project || process.env.SIM_PROJECT) });
     else if (m.t === 'stop') stopRobot();
+    else if (m.t === 'resetPose') chassis.reset(m.x ?? 2, m.y ?? 4, m.deg ?? 0);
     else if (m.t === 'devices') send(ws, { t: 'devices', devices: state.hal.devices, mech: mechInfo });
     else if (m.t === 'analyze') analyze(m.project || process.env.SIM_PROJECT);
     else if (m.t === 'ds') Object.assign(ds, { enabled: !!m.enabled, autonomous: !!m.autonomous, test: !!m.test, estop: !!m.estop });

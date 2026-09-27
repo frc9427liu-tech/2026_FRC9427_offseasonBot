@@ -127,7 +127,9 @@ export function createRobotLink(scene) {
   }
   connect();
 
-  link.start = (project) => send({ t: 'start', project });
+  link.start = (project) => { send({ t: 'start', project }); link.resetPose(); };
+  // put the simulated chassis back on the blue start line (field coordinates, metres / degrees)
+  link.resetPose = (x = 2.0, y = 4.03, deg = 0) => send({ t: 'resetPose', x, y, deg });
   link.stop = () => send({ t: 'stop' });
   link.setDs = (patch) => { Object.assign(link.ds, patch); send({ t: 'ds', enabled: link.ds.enabled, autonomous: link.ds.autonomous }); };
 

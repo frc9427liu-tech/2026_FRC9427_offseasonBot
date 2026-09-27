@@ -22,7 +22,8 @@ export function createTouchUI(link) {
   document.body.appendChild(root);
   let mode = '自動';
 
-  const isTouch = () => matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+  // phones and tablets only: a touchscreen laptop's main pointer is still the mouse, so it stays hidden there
+  const isTouch = () => matchMedia('(pointer: coarse)').matches;
   const apply = () => {
     const on = mode === '開' || (mode === '自動' && isTouch());
     root.hidden = !on;
