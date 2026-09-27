@@ -13,6 +13,7 @@ import { events, wireCrowd } from './events.js';
 import { createRobotLink } from './robot.js';
 import { createTouchUI } from './touch.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
@@ -38,10 +39,18 @@ const scene = new THREE.Scene();
 // warm, not the cool blue-grey it was - matches the venue's own warmer palette instead of fighting it
 scene.background = new THREE.Color(0xc7bda5);
 scene.fog = new THREE.Fog(0xc7bda5, 45, 110);
-// Image-based lighting so metal and paint get believable reflections
+// Image-based lighting so metal and paint get believable reflections. Real HDRI (Poly Haven "Gym 01",
+// CC0, public/env/gym_01_1k.hdr) - actual captured indoor-gym light/reflections, not just the procedural
+// RoomEnvironment placeholder. Loads async; the procedural room lights the very first frames until it's in.
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.5;
+new HDRLoader().load('/env/gym_01_1k.hdr', (hdr) => {
+  const envMap = pmrem.fromEquirectangular(hdr).texture;
+  scene.environment = envMap;
+  hdr.dispose();
+  pmrem.dispose();
+});
 
 const camera = new THREE.PerspectiveCamera(45, 1, 0.2, 120);
 const center = new THREE.Vector3(FIELD_L / 2 * IN, 0.4, -FIELD_W / 2 * IN);
