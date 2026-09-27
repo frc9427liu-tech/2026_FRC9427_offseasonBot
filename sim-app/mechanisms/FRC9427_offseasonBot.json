@@ -1,0 +1,42 @@
+{
+  "robot": {
+    "size": {
+      "length": 0.86,
+      "width": 0.86,
+      "height": 0.55
+    },
+    "capacity": 40,
+    "preload": 8,
+    "intake": {
+      "source": "nt:/AdvantageKit/RealOutputs/intakearmangle",
+      "min": 0.05,
+      "width": 0.64,
+      "reach": 0.15,
+      "scale": 1
+    },
+    "shooter": {
+      "fire": "motor:Talon FX (v6)[13]",
+      "fireMin": 10,
+      "speed": "nt:/AdvantageKit/RealOutputs/shootrps",
+      "hood": "nt:/AdvantageKit/RealOutputs/hoodangle",
+      "elevationBase": 80,
+      "wheelRadiusIn": 2,
+      "efficiency": 0.5,
+      "rate": 8,
+      "spreadDeg": 1.5,
+      "x": 0.151,
+      "y": 0,
+      "z": 0.487
+    },
+    "vision": {
+      "enabled": true,
+      "x": 0.2,
+      "y": 0,
+      "z": 0.5,
+      "yawDeg": 0,
+      "hfovDeg": 62.5,
+      "vfovDeg": 48.9,
+      "maxDist": 6
+    }
+  }
+}

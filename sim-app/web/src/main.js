@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
-import { initUI, setControlsInfo } from './ui.js';
+import { initUI, setControlsInfo, setRobotDesc } from './ui.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
 import { buildVenue } from './venue.js';
@@ -221,6 +221,9 @@ const touchUI = createTouchUI(link);
 touchUI.apply();
 link.onControls = (info) => { setControlsInfo(info); touchUI.build(info); uiApi.refresh(); };
 if (link.controls) link.onControls(link.controls);
+// ROBOT > 機構描述 edits the description the fuel rules read (link.desc); the bridge saves it per project
+link.onDesc = (desc) => { setRobotDesc(desc, { getState: () => link.state, save: (d) => link.saveDesc(d), motors: link.descMotors }); uiApi.refresh(); };
+if (link.desc) link.onDesc(link.desc);
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.body.classList.contains('playing')) {
     document.body.classList.remove('playing');

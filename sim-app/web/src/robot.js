@@ -76,17 +76,33 @@ export function buildPlaceholderRobot(alliance = 'blue') {
   return g;
 }
 
-// Robot-code outputs (units as the code logs them): intake extension in metres, hood in degrees, flywheel in rev/s.
-const NT = { intake: '/AdvantageKit/RealOutputs/intakearmangle', hood: '/AdvantageKit/RealOutputs/hoodangle', flywheel: '/AdvantageKit/RealOutputs/shootrps' };
+// A signal from the robot description (bridge/mechanisms.mjs): "nt:<topic>" = a value the robot code publishes
+// (booleans count as 0/1), "motor:<name>" = that motor's simulated rotor speed in rev/s (absolute). null if the
+// source is unset or not being published right now.
+export function readSignal(src, st) {
+  if (!src || !st) return null;
+  if (src.startsWith('nt:')) {
+    const v = (st.values || {})[src.slice(3)];
+    return typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 1 : 0) : null;
+  }
+  if (src.startsWith('motor:')) {
+    const r = (st.rotors || {})[src.slice(6)];
+    return r ? Math.abs(r.vel) : null;
+  }
+  return null;
+}
+
+// Stand-in mechanisms follow the same signals the game-piece rules use: intake extension (m, x scale), hood
+// angle (deg), flywheel speed (rev/s).
 let lastAnim = performance.now();
-function animateMechanisms(mech, values) {
-  if (!mech) return;
+function animateMechanisms(mech, st, desc) {
+  if (!mech || !desc) return;
   const now = performance.now(), dt = Math.min((now - lastAnim) / 1000, 0.2);
   lastAnim = now;
-  const num = (k) => (typeof values[k] === 'number' ? values[k] : 0);
-  mech.intake.position.x = mech.intakeHome + num(NT.intake);
-  mech.hood.rotation.z = THREE.MathUtils.degToRad(num(NT.hood));
-  mech.flywheel.rotation.y -= num(NT.flywheel) * 2 * Math.PI * dt * 0.1;  // slowed 10x: a real 60 rev/s wheel would just strobe
+  const sig = (s) => readSignal(s, st) || 0;
+  mech.intake.position.x = mech.intakeHome + sig(desc.intake.source) * (desc.intake.scale ?? 1);
+  mech.hood.rotation.z = THREE.MathUtils.degToRad(sig(desc.shooter.hood));
+  mech.flywheel.rotation.y -= sig(desc.shooter.speed) * 2 * Math.PI * dt * 0.1;  // slowed 10x: a real 60 rev/s wheel would just strobe
 }
 
 export function createRobotLink(scene) {
@@ -111,7 +127,7 @@ export function createRobotLink(scene) {
       const m = JSON.parse(e.data);
       if (m.t === 'state') {
         link.state = m; link.running = m.robot.running;
-        animateMechanisms(robot.userData.mech, m.values || {});
+        animateMechanisms(robot.userData.mech, m, link.desc);
         if (m.pose) {
           // WPILib field coordinates (m, deg): +X toward red, +Y away from the scoring table (= -Z in the scene)
           robot.visible = true;
@@ -128,6 +144,7 @@ export function createRobotLink(scene) {
       } else if (m.t === 'controls') { link.controls = m.data; if (link.onControls) link.onControls(m.data); }
       else if (m.t === 'log') { link.log.push(m.line); if (link.log.length > 200) link.log.shift(); }
       else if (m.t === 'hello') { link.log = m.log || []; }
+      else if (m.t === 'robotDesc') { link.desc = m.desc; link.descMotors = m.motors || []; if (link.onDesc) link.onDesc(m.desc); }
     };
   }
   connect();
@@ -136,6 +153,7 @@ export function createRobotLink(scene) {
   // put the simulated chassis back on the blue start line (field coordinates, metres / degrees)
   link.resetPose = (x = 2.0, y = 4.03, deg = 0) => send({ t: 'resetPose', x, y, deg });
   link.stop = () => send({ t: 'stop' });
+  link.saveDesc = (desc) => { link.desc = desc; send({ t: 'saveRobotDesc', desc }); };
   link.setDs = (patch) => { Object.assign(link.ds, patch); send({ t: 'ds', enabled: link.ds.enabled, autonomous: link.ds.autonomous }); };
 
   // ---- inputs: keyboard -> virtual Xbox pad; a real gamepad overrides it while connected ----

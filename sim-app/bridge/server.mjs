@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { analyzeProject } from './analyze.mjs';
 import { MotorSim } from './motorsim.mjs';
 import { SwerveChassis } from './chassis.mjs';
-import { deriveMechanisms } from './mechanisms.mjs';
+import { deriveMechanisms, loadRobotDesc, saveRobotDesc, listMotors } from './mechanisms.mjs';
+import { findLimelights, limelightFrame } from './vision.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const UI_PORT = Number(process.env.SIM_BRIDGE_PORT || 8765);
@@ -29,7 +30,9 @@ const broadcast = (msg) => clients.forEach((c) => send(c, msg));
 // ---------- read the project's source: how is it driven? (re-run whenever the code changes) ----------
 let mechInfo = null;
 let controlsInfo = null, watcher = null, watchTimer = null;
+let robotDesc = null, descProject = null, codeMotors = [];   // game-piece description of the robot (mechanisms.mjs), edited from the UI
 function analyze(projectDir) {
+  try { robotDesc = loadRobotDesc(projectDir); descProject = projectDir; codeMotors = listMotors(projectDir); limelights = findLimelights(projectDir); console.log('limelights:', limelights.join(', ') || 'none'); broadcast({ t: 'robotDesc', desc: robotDesc, motors: codeMotors }); } catch (e) { console.error('robot desc:', e); }
   try { const mech = deriveMechanisms(projectDir); motorSim.setMechanisms(mech); chassis.configure(mech.chassis); mechInfo = mech; } catch (e) { console.error('mechanisms:', e); }
   try { controlsInfo = analyzeProject(projectDir); } catch (e) { controlsInfo = { ok: false, error: String(e.message || e) }; }
   broadcast({ t: 'controls', data: controlsInfo });
@@ -112,13 +115,33 @@ function connectHal() {
 }
 
 // ---------- NT4 client ----------
+// Subscribes to everything the code publishes, and publishes what simulated sensors that live on NT (Limelights)
+// would send. Published values carry the robot's own NT clock (NT4 time sync), because the code uses those
+// timestamps for latency compensation (LimelightHelpers -> addVisionMeasurement).
+let ntPublish = null;   // (topic, type, value) => void, while connected
 function connectNt() {
   const ws = new WebSocket(NT_URL, 'v4.1.networktables.first.wpi.edu');
   ws.binaryType = 'arraybuffer';
   const topics = new Map();
+  const pubs = new Map();   // topic -> pubuid
+  let clockOffset = null;   // server time (us) - local time (us)
+  const nowUs = () => Math.round(performance.now() * 1000);
+  const sync = () => { if (ws.readyState === 1) ws.send(ntFrame(-1, 0, 2, nowUs())); };
+  let syncTimer = null;
   ws.onopen = () => {
     state.nt.connected = true;
     ws.send(JSON.stringify([{ method: 'subscribe', params: { topics: [''], subuid: 1, options: { prefix: true, periodic: 0.05 } } }]));
+    sync(); syncTimer = setInterval(sync, 3000);
+    ntPublish = (topic, type, value) => {
+      if (clockOffset == null || ws.readyState !== 1) return;
+      let id = pubs.get(topic);
+      if (id == null) {
+        id = pubs.size + 1;
+        pubs.set(topic, id);
+        ws.send(JSON.stringify([{ method: 'publish', params: { name: topic, pubuid: id, type, properties: {} } }]));
+      }
+      ws.send(ntFrame(id, nowUs() + clockOffset, NT_TYPE[type], value));
+    };
   };
   ws.onmessage = (e) => {
     if (typeof e.data === 'string') {
@@ -128,15 +151,48 @@ function connectNt() {
       }
     } else {
       for (const arr of decodeMulti(new Uint8Array(e.data))) {
+        if (arr[0] === -1) { const rtt = nowUs() - Number(arr[3]); clockOffset = Number(arr[1]) + rtt / 2 - nowUs(); continue; }
         const name = topics.get(arr[0]);
         if (name) state.nt.values[name] = arr[3];
       }
     }
   };
-  ws.onclose = () => { state.nt.connected = false; state.nt.values = {}; state.nt.types = {}; setTimeout(connectNt, 1500); };
+  ws.onclose = () => { state.nt.connected = false; state.nt.values = {}; state.nt.types = {}; ntPublish = null; clearInterval(syncTimer); setTimeout(connectNt, 1500); };
   ws.onerror = () => { try { ws.close(); } catch { /* ignore */ } };
 }
+// NT4 binary frame [id, timestamp us, type, value] as msgpack, written by hand so doubles always go out as
+// float64 (a generic encoder turns 1.0 into an int, which ntcore rejects for a double topic).
+const NT_TYPE = { boolean: 0, double: 1, int: 2, 'double[]': 17 };
+function ntFrame(id, ts, type, value) {
+  const b = [];
+  const u8 = (v) => b.push(v & 0xff);
+  const int = (v) => {
+    if (v >= 0 && v < 128) return u8(v);
+    if (v < 0 && v >= -32) return u8(0xe0 | (v + 32));
+    const dv = new DataView(new ArrayBuffer(9)); dv.setUint8(0, 0xd3); dv.setBigInt64(1, BigInt(Math.round(v))); b.push(...new Uint8Array(dv.buffer));
+  };
+  const dbl = (v) => { const dv = new DataView(new ArrayBuffer(9)); dv.setUint8(0, 0xcb); dv.setFloat64(1, v); b.push(...new Uint8Array(dv.buffer)); };
+  u8(0x94); int(id); int(ts); int(type);
+  if (type === 1) dbl(value);
+  else if (type === 17) { u8(0xdc); u8(value.length >> 8); u8(value.length); value.forEach(dbl); }
+  else if (type === 0) u8(value ? 0xc3 : 0xc2);
+  else int(value);
+  return new Uint8Array(b);
+}
 
+// ---------- simulated Limelights (vision.mjs): 20 Hz, like a camera pipeline ----------
+let limelights = [];
+setInterval(() => {
+  if (!ntPublish || !chassis.cfg || !state.robot.running || !limelights.length) return;
+  const cam = (robotDesc && robotDesc.vision) || {};
+  if (cam.enabled === false) return;
+  for (const name of limelights) {
+    // MegaTag2 reports the robot yaw the code itself sent (robot_orientation_set), exactly like the real camera
+    const ori = state.nt.values[`/${name}/robot_orientation_set`];
+    const yaw = Array.isArray(ori) && typeof ori[0] === 'number' ? ori[0] : (chassis.pose.theta * 180) / Math.PI;
+    for (const v of limelightFrame(name, chassis.pose, { x: 0.2, y: 0, z: 0.5, yawDeg: 0, hfovDeg: 62.5, vfovDeg: 48.9, maxDist: 6, ...cam }, yaw)) ntPublish(v.topic, v.type, v.value);
+  }
+}, 50);
 // ---------- driver station / joystick -> robot ----------
 const ds = { enabled: false, autonomous: false, test: false, estop: false };
 function pushDs() {
@@ -174,6 +230,12 @@ function summary() {
   }
   const numeric = {};
   for (const [k, v] of Object.entries(nt)) {
+    // AdvantageKit logs Pose2d as a WPILib struct (3 little-endian doubles: x, y, rotation rad) -> [x, y, deg]
+    if (state.nt.types[k] === 'struct:Pose2d' && v instanceof Uint8Array && v.length === 24) {
+      const d = new DataView(v.buffer, v.byteOffset, 24);
+      numeric[k] = [d.getFloat64(0, true), d.getFloat64(8, true), (d.getFloat64(16, true) * 180) / Math.PI];
+      continue;
+    }
     if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'string' || (Array.isArray(v) && v.length <= 8 && v.every((x) => typeof x === 'number'))) numeric[k] = v;
   }
   return {
@@ -200,13 +262,17 @@ wss.on('connection', (ws) => {
   send(ws, { t: 'hello', running: state.robot.running, project: state.robot.project, log: state.robot.log.slice(-60) });
   if (!controlsInfo && process.env.SIM_PROJECT) analyze(process.env.SIM_PROJECT);
   if (controlsInfo) send(ws, { t: 'controls', data: controlsInfo });
+  if (robotDesc) send(ws, { t: 'robotDesc', desc: robotDesc, motors: codeMotors });
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw); } catch { return; }
     if (m.t === 'start') send(ws, { t: 'startResult', ...startRobot(m.project || process.env.SIM_PROJECT) });
     else if (m.t === 'stop') stopRobot();
     else if (m.t === 'resetPose') chassis.reset(m.x ?? 2, m.y ?? 4, m.deg ?? 0);
     else if (m.t === 'devices') send(ws, { t: 'devices', devices: state.hal.devices, mech: mechInfo });
-    else if (m.t === 'analyze') analyze(m.project || process.env.SIM_PROJECT);
+    else if (m.t === 'saveRobotDesc' && m.desc) {
+      const dir = descProject || state.robot.project || process.env.SIM_PROJECT;
+      if (dir) { try { robotDesc = saveRobotDesc(dir, m.desc); broadcast({ t: 'robotDesc', desc: robotDesc, motors: codeMotors }); } catch (e) { send(ws, { t: 'error', error: String(e.message || e) }); } }
+    } else if (m.t === 'analyze') analyze(m.project || process.env.SIM_PROJECT);
     else if (m.t === 'ds') Object.assign(ds, { enabled: !!m.enabled, autonomous: !!m.autonomous, test: !!m.test, estop: !!m.estop });
     else if (m.t === 'joy') joys[m.index ?? 0] = { axes: m.axes || [], buttons: m.buttons || [], povs: m.povs || [] };
   });

@@ -49,7 +49,7 @@ const MODALS = {
   robot: { title: '機器人', pages: [
     ['外觀模型', [val('目前模型', '之後匯入 Onshape', '簡化方塊'), val('顏色', '', '聯盟色')]],
     ['程式與按鍵', [val('機器人程式', '目前使用', 'FRC9427 offseasonBot'), val('按鍵綁定', '自動從 RobotContainer 讀取', '尚未連線')]],
-    ['物理參數', [val('質量', '', '—'), val('尺寸', '', '—'), val('最大速度', '', '—')]],
+    ['機構描述', [val('狀態', '', '等待橋接程式')]],
   ] },
   field: { title: '場地', pages: [
     ['規則', [val('賽季', '', '2026 REBUILT'), val('計分', '官方（可自訂）', '官方')]],
@@ -103,6 +103,77 @@ export function setControlsInfo(info, keymap = {}) {
   page[1] = [val('控制器', `共掃描 ${info.filesScanned} 個原始檔`, ctrl || '未找到'), ...rows];
 }
 
+// ---- ROBOT > 機構描述: the robot description the game-piece rules use (bridge/mechanisms.mjs), editable ----
+// Each field is a number or a signal source; signal choices come from what the running code actually publishes
+// (NT topics) and the motors the sim sees, so the list always matches the loaded robot program.
+const descCtx = { desc: null, getState: () => null, save: () => {}, motors: [] };   // motors: [{name, label}] found in the code
+const DESC_ROWS = [
+  ['h', '車身'],
+  ['num', 'size.length', '長度', 'm，含保險桿', 0.01],
+  ['num', 'size.width', '寬度', 'm，含保險桿', 0.01],
+  ['num', 'size.height', '高度', 'm，球從上面彈開的高度', 0.01],
+  ['num', 'capacity', '最多存球', '顆', 1],
+  ['h', '吸球'],
+  ['src', 'intake.source', '吸球訊號', '超過門檻時吸球口開啟；數值同時當作吸球口伸出量'],
+  ['num', 'intake.min', '門檻', '', 0.01],
+  ['num', 'intake.width', '吸球口寬', 'm', 0.01],
+  ['num', 'intake.reach', '吸球口伸出', 'm，保險桿前方', 0.01],
+  ['num', 'intake.scale', '伸出倍率', '訊號每 1 單位多伸出幾 m', 0.01],
+  ['h', '發射'],
+  ['src', 'shooter.fire', '送球訊號', '超過門檻時一顆顆送進飛輪（建議選把球推進飛輪的馬達）'],
+  ['num', 'shooter.fireMin', '門檻', '馬達為 rev/s', 0.5],
+  ['src', 'shooter.speed', '飛輪轉速', 'rev/s'],
+  ['src', 'shooter.hood', 'Hood 角度', '度'],
+  ['num', 'shooter.elevationBase', '仰角基準', '出射仰角 = 基準 − hood 角度（度）', 0.5],
+  ['num', 'shooter.wheelRadiusIn', '飛輪半徑', 'in', 0.1],
+  ['num', 'shooter.efficiency', '球速效率', '球速 = 效率 × 輪緣速度', 0.01],
+  ['num', 'shooter.rate', '射速', '顆/秒', 0.5],
+  ['num', 'shooter.spreadDeg', '左右散布', '度', 0.1],
+  ['num', 'shooter.x', '發射點 前後', 'm，車身中心往前為正', 0.01],
+  ['num', 'shooter.y', '發射點 左右', 'm，往左為正', 0.01],
+  ['num', 'shooter.z', '發射點 高度', 'm', 0.01],
+  ['h', '視覺（Limelight 模擬，名稱從程式自動找）'],
+  ['num', 'vision.x', '鏡頭位置 前後', 'm，車身中心往前為正', 0.01],
+  ['num', 'vision.y', '鏡頭位置 左右', 'm，往左為正', 0.01],
+  ['num', 'vision.z', '鏡頭高度', 'm', 0.01],
+  ['num', 'vision.yawDeg', '鏡頭朝向', '度，0 = 朝車頭，180 = 朝車尾', 1],
+  ['num', 'vision.hfovDeg', '水平視角', '度（LL3 約 62.5）', 0.5],
+  ['num', 'vision.maxDist', '最遠辨識距離', 'm', 0.1],
+];
+const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => (a[k] ||= {}), o)[last] = v; };
+const srcLabel = (s) => {
+  if (!s) return '（未設定）';
+  if (s.startsWith('motor:')) { const m = descCtx.motors.find((x) => x.name === s.slice(6)); return `馬達 ${m ? m.label : s.slice(6)}`; }
+  return `NT ${s.slice(3).split('/').pop()}`;
+};
+function liveText(src) {
+  const st = descCtx.getState();
+  if (!src || !st) return '';
+  let v = null;
+  if (src.startsWith('nt:')) { v = (st.values || {})[src.slice(3)]; if (typeof v === 'boolean') v = v ? 1 : 0; }
+  else if (src.startsWith('motor:')) { const r = (st.rotors || {})[src.slice(6)]; v = r ? Math.abs(r.vel) : null; }
+  return typeof v === 'number' ? `目前 ${v.toFixed(2)}` : '目前沒有數值';
+}
+function sourceOptions(cur) {
+  const st = descCtx.getState() || {};
+  const nt = Object.entries(st.values || {}).filter(([, v]) => typeof v === 'number' || typeof v === 'boolean').map(([k]) => `nt:${k}`).sort();
+  const motors = [...new Set([...descCtx.motors.map((m) => m.name), ...Object.keys(st.rotors || {})])].map((k) => `motor:${k}`).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const all = ['', ...motors, ...nt];
+  if (cur && !all.includes(cur)) all.push(cur);   // keep a saved choice visible even while the code isn't running
+  return all.map((s) => `<option value="${esc(s)}"${s === cur ? ' selected' : ''} title="${esc(s)}">${esc(srcLabel(s))}</option>`).join('');
+}
+export function setRobotDesc(desc, { getState, save, motors } = {}) {
+  descCtx.desc = desc;
+  if (motors) descCtx.motors = motors;
+  if (getState) descCtx.getState = getState;
+  if (save) descCtx.save = save;
+  const page = MODALS.robot.pages.find((p) => p[0] === '機構描述');
+  if (!desc) { page[1] = [val('狀態', '', '等待橋接程式')]; return; }
+  page[1] = [val('說明', '吸球、發射、碰撞都照這裡算；訊號從機器人程式實際送出的數值挑。改了立刻存檔（sim-app/mechanisms/）', ''),
+    ...DESC_ROWS.map(([type, path, k, hint, step]) => (type === 'h' ? { type: 'head', k: path } : { type, path, k, hint: hint || '', step }))];
+}
+
 export function initUI({ onStart, onPreview, onSettingChange }) {
   // dock + cards
   $('dock').innerHTML = DOCK.map((d) => `<button class="dock-item" data-open="${d.id}"><span class="g">${d.g}</span>${d.label}</button>`).join('');
@@ -143,10 +214,32 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
           const slots = AXIS_CONTROLS.includes(r.control) ? [['−', 0], ['+', 1]] : [['', 0]];
           right = `<span>${slots.map(([tag, s]) => `${tag ? `<small>${tag}</small>` : ''}<button class="bindbtn" data-bind="${r.control}" data-slot="${s}">${esc(keyLabel(codes[s]))}</button>`).join('')}</span>`;
         }
+      } else if (r.type === 'head') return `<div class="dhead">${r.k}</div>`;
+      else if (r.type === 'num') right = `<input class="numin" type="number" step="${r.step}" data-path="${r.path}" value="${getPath(descCtx.desc, r.path) ?? ''}">`;
+      else if (r.type === 'src') {
+        const cur = getPath(descCtx.desc, r.path) || '';
+        right = `<span class="srcwrap"><select class="srcsel" data-path="${r.path}">${sourceOptions(cur)}</select><small data-live="${r.path}">${liveText(cur)}</small></span>`;
       } else right = `<span class="val">${r.v}</span>`;
       return `<div class="drow"><span class="k">${r.k}${hint}</span>${right}</div>`;
     }).join('');
   };
+  // description edits: save on every change (bridge writes the project's JSON and echoes it back)
+  $('mcontent').addEventListener('change', (e) => {
+    const el = e.target.closest('[data-path]');
+    if (!el || !descCtx.desc) return;
+    const v = el.tagName === 'SELECT' ? el.value : parseFloat(el.value);
+    if (el.tagName !== 'SELECT' && !Number.isFinite(v)) return;
+    const d = JSON.parse(JSON.stringify(descCtx.desc));
+    setPath(d, el.dataset.path, v);
+    descCtx.desc = d;
+    descCtx.save(d);
+    if (el.tagName === 'SELECT') { const live = el.parentElement.querySelector('[data-live]'); if (live) live.textContent = liveText(v); }
+  });
+  // live signal values next to each source, without re-rendering (so a field being typed in keeps focus)
+  setInterval(() => {
+    if ($('modal').hidden) return;
+    document.querySelectorAll('#mcontent [data-live]').forEach((s) => { s.textContent = liveText(getPath(descCtx.desc, s.dataset.live)); });
+  }, 400);
   $('mlist').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { mpage = +b.dataset.p; renderModal(); } };
   $('mcontent').onclick = (e) => {
     const kb = e.target.closest('[data-bind]');

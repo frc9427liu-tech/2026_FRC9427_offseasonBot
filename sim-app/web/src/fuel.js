@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
 import { BallSim } from './balls.js';
+import { readSignal } from './robot.js';
 
 const IN = 0.0254;
 export const FUEL_D = 5.91 * IN;
@@ -77,19 +78,18 @@ function fuelTexture() {
   return t;
 }
 
-// Robot geometry the fuel rules need (metres, robot frame): bumper half sizes, frame height, intake mouth, launcher.
-// The launcher pose and the shot model below were fitted to this robot's own shooting tables
-// (ShooterCalculator hood/rps/time-of-flight): elevation = 80 deg - hood angle, ball speed = 0.5 * wheel surface speed.
-const ROBOT = { half: [0.43, 0.43], height: 0.55, capacity: 40, preload: 8 };
-const SHOOTER = { pos: [0.151, 0, 0.487], wheelRadius: 2 * IN, efficiency: 0.5, elevationBase: 80, ratePerSec: 8, spreadDeg: 1.5 };
-const NT = {
-  intake: '/AdvantageKit/RealOutputs/intakearmangle', hood: '/AdvantageKit/RealOutputs/hoodangle', rps: '/AdvantageKit/RealOutputs/shootrps',
-  hoodOk: '/AdvantageKit/RealOutputs/hoodisatposition', flyOk: '/AdvantageKit/RealOutputs/flywheelisatposition',
+// Fallback robot description (same shape as bridge/mechanisms.mjs DEFAULT_ROBOT_DESC) until the bridge sends the
+// project's own one; the per-robot values (which signal is the intake, the shooter feed, ...) come from there.
+// The shot model fitted to this robot's shooting tables (ShooterCalculator hood/rps/time-of-flight):
+// elevation = elevationBase - hood angle, ball speed = efficiency * wheel surface speed.
+const FALLBACK_DESC = {
+  size: { length: 0.86, width: 0.86, height: 0.55 }, capacity: 40, preload: 8,
+  intake: { source: '', min: 0.05, width: 0.64, reach: 0.15, scale: 1 },
+  shooter: { fire: '', fireMin: 10, speed: '', hood: '', elevationBase: 80, wheelRadiusIn: 2, efficiency: 0.5, rate: 8, spreadDeg: 1.5, x: 0.151, y: 0, z: 0.487 },
 };
-
 export function buildFuel(events) {
   const pts = startingLayout();
-  const extra = ROBOT.preload;                       // preloaded fuel starts inside the robot
+  const extra = FALLBACK_DESC.preload;               // preloaded fuel starts inside the robot
   const total = pts.length + extra;
   const geo = new THREE.SphereGeometry(FUEL_R, 32, 20);
   // matte foam, not shiny plastic: higher roughness, tiny emissive so it never reads black in shadow
@@ -137,35 +137,37 @@ export function buildFuel(events) {
         rv.vx += ((x - last.x) / dt - rv.vx) * k; rv.vy += ((y - last.y) / dt - rv.vy) * k; rv.omega += (dth / dt - rv.omega) * k;
       }
       if (!last || last.x !== x || last.y !== y || last.th !== th) last = { x, y, th };
-      sim.robot = { x, y, theta: th, vx: rv.vx, vy: rv.vy, omega: rv.omega, half: ROBOT.half, height: ROBOT.height };
-      const vals = st.values || {};
-      const num = (k) => (typeof vals[k] === 'number' ? vals[k] : 0);
+      const desc = link.desc || FALLBACK_DESC, I = desc.intake, S = desc.shooter;
+      const half = [desc.size.length / 2, desc.size.width / 2];
+      sim.robot = { x, y, theta: th, vx: rv.vx, vy: rv.vy, omega: rv.omega, half, height: desc.size.height };
+      const sig = (src) => readSignal(src, st);
       const c = Math.cos(th), s = Math.sin(th);
-      // intake: fuel that rolls into the mouth while the intake is out is taken in
-      const ext = num(NT.intake);
-      if (ext > 0.05) {
+      // intake: while its signal is above the threshold, fuel that rolls into the mouth in front of the bumper is taken in
+      const ext = sig(I.source);
+      if (ext != null && ext > I.min) {
         let held = sim.count(1);
-        for (let i = 0; i < total && held < ROBOT.capacity; i++) {
+        const reach = half[0] + I.reach + ext * I.scale;
+        for (let i = 0; i < total && held < desc.capacity; i++) {
           if (sim.state[i] !== 0 || sim.p[i * 3 + 2] > 0.3) continue;
           const dx = sim.p[i * 3] - x, dy = sim.p[i * 3 + 1] - y;
           const lx = dx * c + dy * s, ly = -dx * s + dy * c;
-          if (lx > ROBOT.half[0] - 0.1 && lx < ROBOT.half[0] + 0.15 + ext && Math.abs(ly) < 0.32) { sim.park(i, 1); held++; }
+          if (lx > half[0] - 0.1 && lx < reach && Math.abs(ly) < I.width / 2) { sim.park(i, 1); held++; }
         }
       }
-      // shooter: trigger held, flywheel and hood at their targets -> one fuel every 1/rate s
-      const rt = link.pad && link.pad.axes[3] > 0.5;
-      const ready = rt && vals[NT.flyOk] && vals[NT.hoodOk] && num(NT.rps) > 15;
+      // shooter: while the feed signal (e.g. the motor that pushes fuel into the flywheel) is running, one fuel
+      // leaves every 1/rate s at the speed/angle the flywheel and hood signals give
+      const feed = sig(S.fire);
+      const ready = feed != null && feed > S.fireMin;
       fireT = ready ? fireT + dt : 0;
-      while (ready && fireT >= 1 / SHOOTER.ratePerSec) {
-        fireT -= 1 / SHOOTER.ratePerSec;
+      while (ready && fireT >= 1 / S.rate) {
+        fireT -= 1 / S.rate;
         const i = sim.firstWithState(1);
         if (i < 0) break;
-        const speed = SHOOTER.efficiency * 2 * Math.PI * SHOOTER.wheelRadius * num(NT.rps) * (1 + (Math.random() - 0.5) * 0.03);
-        const elev = ((SHOOTER.elevationBase - num(NT.hood)) * Math.PI) / 180;
-        const yaw = th + ((Math.random() - 0.5) * 2 * SHOOTER.spreadDeg * Math.PI) / 180;
-        const [ox, oy, oz] = SHOOTER.pos;
+        const speed = S.efficiency * 2 * Math.PI * S.wheelRadiusIn * IN * (sig(S.speed) || 0) * (1 + (Math.random() - 0.5) * 0.03);
+        const elev = ((S.elevationBase - (sig(S.hood) || 0)) * Math.PI) / 180;
+        const yaw = th + ((Math.random() - 0.5) * 2 * S.spreadDeg * Math.PI) / 180;
         const hv = speed * Math.cos(elev);
-        sim.launch(i, [x + ox * c - oy * s, y + ox * s + oy * c, oz], [hv * Math.cos(yaw) + rv.vx, hv * Math.sin(yaw) + rv.vy, speed * Math.sin(elev)]);
+        sim.launch(i, [x + S.x * c - S.y * s, y + S.x * s + S.y * c, S.z], [hv * Math.cos(yaw) + rv.vx, hv * Math.sin(yaw) + rv.vy, speed * Math.sin(elev)]);
       }
     } else sim.robot = null;
     sim.step(dt);
