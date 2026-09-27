@@ -53,12 +53,17 @@ diffuseColor.rgb *= 1.0 - ${grime.toFixed(2)} * low * (0.4 + nz);
 float ed = length(fwidth(normalize(vNormal)));
 diffuseColor.rgb += ed * ${edge.toFixed(2)} * 0.35;
 ${bolts ? `
-// panel screws: a periodic 3D lattice of dark dots, masked to only show up near the same creases/silhouettes
-// the edge term already found (so it reads as a line of fasteners along a seam, not a grid on flat panel faces)
-vec3 boltCell = fract(vWPos / 0.12 + 0.5) - 0.5;
-float boltDot = smoothstep(0.16, 0.04, length(boltCell));
-float edgeMask = smoothstep(0.015, 0.12, ed);
-diffuseColor.rgb *= 1.0 - boltDot * edgeMask * 0.55;` : ''}`)
+// Real tube-frame bolts (see assets-src/imgs/*-tower-bolt-*.jpg): sparse individual hex bolts with a metal
+// washer, roughly one every 0.35-0.4m along a frame edge, not a dense grid - a bolt this size should read as
+// a distinct fleck, not texture. One periodic sample point per that spacing, masked tightly to the edge/
+// crease line the frame tubes actually meet at, with a bright metallic centre instead of a flat dark dot.
+vec3 boltCell = fract(vWPos / 0.38 + 0.5) - 0.5;
+float boltR = length(boltCell);
+float edgeMask = smoothstep(0.01, 0.05, ed);
+float washer = smoothstep(0.05, 0.03, boltR) * edgeMask;
+float rim = smoothstep(0.065, 0.05, boltR) * (1.0 - smoothstep(0.045, 0.035, boltR)) * edgeMask;
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75, 0.77, 0.8), washer);
+diffuseColor.rgb *= 1.0 - rim * 0.5;` : ''}`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.toFixed(2)} + low * 0.15, 0.05, 1.0);`);
   };

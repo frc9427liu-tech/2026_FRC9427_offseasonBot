@@ -74,6 +74,7 @@ scene.add(props.group);
 // ---- robot link (bridge to the running robot code) ----
 const link = createRobotLink(scene);
 window.__link = link; // dev hook
+window.__lookAt = (px, py, pz, tx, ty, tz) => { camera.position.set(px, py, pz); controls.target.set(tx, ty, tz); controls.update(); }; // dev hook
 window.__link = link;
 let followRobot = false;
 const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), follow: document.getElementById('dsfollow'), bar: document.getElementById('dsbar') };
