@@ -5,6 +5,53 @@ import { FIELD_L, FIELD_W } from './field.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 
+// Yellow/black hazard cable ramp, not a flat mustard slab
+function cableTexture() {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#e8b400';
+  g.fillRect(0, 0, 64, 256);
+  g.fillStyle = '#181818';
+  for (let y = -64; y < 256; y += 32) { g.save(); g.translate(0, y); g.rotate(-0.5); g.fillRect(-64, 0, 192, 14); g.restore(); }
+  g.fillStyle = 'rgba(0,0,0,.35)';
+  g.fillRect(20, 0, 6, 256); g.fillRect(38, 0, 6, 256);   // raised cable channel shadow lines
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, 3);
+  return t;
+}
+
+// Rugged flight-case shell: ABS-grey with rubber corner guards and a latch, not a flat dark box
+function caseTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#3a3d42';
+  g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 500; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.1)' : 'rgba(255,255,255,.06)'; g.fillRect(Math.random() * 128, Math.random() * 128, 1.5, 1.5); }
+  g.fillStyle = '#16171a';   // corner guard + latch
+  g.fillRect(0, 0, 22, 22); g.fillRect(106, 0, 22, 22); g.fillRect(0, 106, 22, 22); g.fillRect(106, 106, 22, 22);
+  g.fillRect(54, 54, 20, 20);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// A laptop screen showing something, not a flat blue rectangle
+function screenTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 80;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0d2038'; g.fillRect(0, 0, 128, 80);
+  g.fillStyle = '#173257'; g.fillRect(0, 0, 128, 14);
+  g.fillStyle = '#6fb4ff';
+  for (let i = 0; i < 5; i++) g.fillRect(6, 20 + i * 12, 30 + Math.random() * 60, 6);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function signTexture(text) {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 128;
@@ -25,8 +72,9 @@ export function buildOfficials() {
   const cloth = new THREE.MeshStandardMaterial({ color: 0x14171d, roughness: 0.95 });
   const top = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.55 });   // was near-white laminate, now a duller grey-white
   const dark = new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.3 });
-  const screen = new THREE.MeshBasicMaterial({ color: 0x6fb4ff });
-  const cover = new THREE.MeshStandardMaterial({ color: 0xf2c14e, roughness: 0.6 });
+  const screen = new THREE.MeshBasicMaterial({ map: screenTexture() });
+  const cover = new THREE.MeshStandardMaterial({ map: cableTexture(), roughness: 0.75 });
+  const caseMat = new THREE.MeshStandardMaterial({ map: caseTexture(), roughness: 0.6 });
 
   // Scoring table: 8 m long, black skirt, white top, along the scoring-table side behind the referees
   const tx = L / 2, tz = 2.55, tl = 8.4, td = 0.8;
@@ -64,7 +112,7 @@ export function buildOfficials() {
   }
   // Equipment cases beside the table
   for (let i = 0; i < 4; i++) {
-    const caseMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.55), dark);
+    const caseMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.55), caseMat);
     caseMesh.position.set(tx + tl / 2 + 1.0 + (i % 2) * 1.0, 0.3 + (i > 1 ? 0.6 : 0), 2.6);
     g.add(caseMesh);
   }
