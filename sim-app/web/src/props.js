@@ -151,32 +151,38 @@ export function buildProps() {
     // wall at the TOP of that climb, not at ground level - the door was floating at y=0 before, well above
     // the actual concourse floor and disconnected from the steps leading up to it. h0 is that floor height.
     const h0 = STAND_TOP_H;
-    // recessed alcove: a maroon-framed box set slightly INTO the wall behind the door, not a door bolted flat
-    // onto a flat cream panel
-    const alcove = new THREE.Mesh(new THREE.BoxGeometry(3.3, 4.2, 0.22), alcoveMat);
-    alcove.position.set(x - Math.sin(ry) * 0.1, h0 + 2.1, z - Math.cos(ry) * 0.1);
-    alcove.rotation.y = ry;
-    g.add(alcove);
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.2), gateMat);
-    door.position.set(x, h0 + 1.6, z);
+    // Real proportions: a double door is about 1.7m wide, 2.2m tall (roughly 1.3x a person's height) -
+    // the previous door (2.6 x 3.2) and its alcove (4.2 tall!) were nearly double that, reading as a
+    // structure a person couldn't plausibly walk through, half-swallowed by the truss above.
+    const dw = 1.7, dh = 2.2, recess = 0.35;
+    const fwd = [Math.sin(ry), Math.cos(ry)];   // the +Z-after-rotation direction (into the room), used throughout
+    // recessed passage: back panel + two side jambs, so it reads as an actual cut opening with depth, not
+    // a coloured decal stuck flat on the wall
+    const back = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.5, dh + 0.4, 0.1), alcoveMat);
+    back.position.set(x - fwd[0] * recess, h0 + (dh + 0.4) / 2, z - fwd[1] * recess);
+    back.rotation.y = ry;
+    g.add(back);
+    for (const side of [-1, 1]) {
+      const jamb = new THREE.Mesh(new THREE.BoxGeometry(recess, dh + 0.4, 0.1), alcoveMat);
+      const jx = x + Math.cos(ry) * side * (dw + 0.5) / 2, jz = z - Math.sin(ry) * side * (dw + 0.5) / 2;
+      jamb.position.set(jx - fwd[0] * recess / 2, h0 + (dh + 0.4) / 2, jz - fwd[1] * recess / 2);
+      jamb.rotation.y = ry;
+      g.add(jamb);
+    }
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), gateMat);
+    door.position.set(x, h0 + dh / 2, z);
     door.rotation.y = ry;
-    // width on local X to match PlaneGeometry's own width axis, so rotating both by the same ry keeps
-    // the lintel spanning the doorway instead of poking edge-on into the room (was swapped X/Z - the
-    // beam only happened to look right on the two ry=90 doors and stuck out as a thin peg at ry=0)
-    const top = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.2, 0.15), frame);
-    top.position.set(x, h0 + 3.3, z);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.15, 0.15, 0.12), frame);
+    top.position.set(x, h0 + dh + 0.08, z);
     top.rotation.y = ry;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), entrance);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.24), entrance);
     const inset = 0.06;
-    sign.position.set(x + Math.sin(ry) * inset, h0 + 3.75, z + Math.cos(ry) * inset);
+    sign.position.set(x + fwd[0] * inset, h0 + dh + 0.4, z + fwd[1] * inset);
     sign.rotation.y = ry;
-    // a short landing/threshold plate at the door so the floor doesn't just stop under it. A thin box
-    // rather than a rotated plane - a plane needs its OWN rotation.y to line its width up with the
-    // doorway before being laid flat, and composing that with the flat-lay rotation.x was never right
-    // (it read as a skewed quad, not flush with the door) - a box just rotates about Y like everything else.
-    const landing = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.01, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
+    // a short landing/threshold plate at the door so the floor doesn't just stop under it
+    const landing = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.2, 0.01, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
     landing.rotation.y = ry;
-    landing.position.set(x + Math.sin(ry) * 0.5, h0 + 0.005, z + Math.cos(ry) * 0.5);
+    landing.position.set(x + fwd[0] * 0.5, h0 + 0.005, z + fwd[1] * 0.5);
     g.add(door, top, sign, landing);
   };
   doorway(CX, ZfarV + 0.02, 0);                       // audience-straight aisle -> far wall
