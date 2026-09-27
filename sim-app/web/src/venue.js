@@ -5,23 +5,44 @@ import { FIELD_L, FIELD_W } from './field.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 
+// Printed fabric banner: a solid colour (a hard top-to-navy fade and a bright white keyline read as a flat
+// vector graphic, not cloth) with woven-fabric grain, a soft vignette toward the edges, and a sewn hem top
+// and bottom instead of a stroked outline.
 function bannerTexture(color, text) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 768;
   const g = c.getContext('2d');
-  const grad = g.createLinearGradient(0, 0, 0, 768);
-  grad.addColorStop(0, color);
-  grad.addColorStop(1, '#0a1a3a');
-  g.fillStyle = grad;
+  g.fillStyle = color;
   g.fillRect(0, 0, 256, 768);
-  g.strokeStyle = 'rgba(255,255,255,.75)';
-  g.lineWidth = 6;
-  g.strokeRect(12, 12, 232, 744);
-  g.fillStyle = '#fff';
-  g.font = 'italic 900 64px "Segoe UI", sans-serif';
+  // fabric weave grain
+  for (let i = 0; i < 6000; i++) {
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(0,0,0,.05)' : 'rgba(255,255,255,.04)';
+    g.fillRect(Math.random() * 256, Math.random() * 768, 1.5, 1.5);
+  }
+  // gentle vignette so the edges recede instead of a hard-edged colour block
+  const vg = g.createRadialGradient(128, 384, 120, 128, 384, 420);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,.32)');
+  g.fillStyle = vg;
+  g.fillRect(0, 0, 256, 768);
+  // sewn hem: a darker folded band top and bottom with stitch dashes, not a bright outline
+  for (const y of [0, 768 - 26]) {
+    g.fillStyle = 'rgba(0,0,0,.22)';
+    g.fillRect(0, y, 256, 26);
+    g.strokeStyle = 'rgba(255,255,255,.3)';
+    g.setLineDash([6, 6]);
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, y + 13); g.lineTo(256, y + 13); g.stroke();
+    g.setLineDash([]);
+  }
+  // grommets at the top corners, where the hanging cable ties on
+  g.fillStyle = '#cfd3d8';
+  for (const x of [22, 234]) { g.beginPath(); g.arc(x, 13, 7, 0, Math.PI * 2); g.fill(); g.fillStyle = '#3a3f46'; g.beginPath(); g.arc(x, 13, 3.5, 0, Math.PI * 2); g.fill(); g.fillStyle = '#cfd3d8'; }
+  g.fillStyle = 'rgba(255,255,255,.92)';
+  g.font = 'italic 900 62px "Segoe UI", sans-serif';
   g.textAlign = 'center';
   g.save();
-  g.translate(128, 384);
+  g.translate(128, 400);
   g.rotate(-Math.PI / 2);
   g.fillText(text, 0, 22);
   g.restore();

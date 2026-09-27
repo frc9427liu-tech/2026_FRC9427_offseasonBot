@@ -218,21 +218,32 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   const wallMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   // the band sits exactly on the barrier wall: pull it toward the camera in depth so the two never z-fight (flicker)
   const bandMat = new THREE.MeshBasicMaterial({ color: 0x3a8dff, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const ribbonH = (pts, y0, y1, mat, uvScale = 1) => {
+  // gaps: [{from, to}] in cumulative path distance (m) - the quad between two points is skipped if its
+  // midpoint distance falls in any gap, leaving an open vomitory entrance in the wall.
+  const ribbonH = (pts, y0, y1, mat, uvScale = 1, gaps = null) => {
     const pos = [], idx = [], uv = [];
     let dist = 0;
+    const distAt = [0];
     pts.forEach((p, i) => {
       if (i) dist += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
       pos.push(p.x, y0, p.z, p.x, y1, p.z);
       uv.push(dist * uvScale, 0, dist * uvScale, (y1 - y0) * uvScale);
-      if (i) { const a = (i - 1) * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+      distAt.push(dist);
     });
+    for (let i = 1; i < pts.length; i++) {
+      const mid = (distAt[i] + distAt[i + 1]) / 2;
+      if (gaps && gaps.some((gp) => mid > gp.from && mid < gp.to)) continue;
+      const a = (i - 1) * 2, b = i * 2;
+      idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, mat); m.material.side = THREE.DoubleSide; return m;
   };
+  // total path length, used to place entrances at fixed fractions regardless of field size
+  const pathLength = (pts) => { let d = 0; for (let i = 1; i < pts.length; i++) d += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); return d; };
   group.add(ribbonH(frontIn, 0, 0.9, wallMat));
   group.add(ribbonH(frontIn, 0.55, 0.66, bandMat));
   const backOff = margin + rows * rowDepth + 0.1;
@@ -241,9 +252,45 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   backTex.repeat.set(1, 1);
   const backWallMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.85 });
   const backPts = pathSamples(backOff, nA, nB, nArc, R0, cutZ);
-  group.add(ribbonH(backPts, 0, backH, backWallMat, 0.35));
+  // Vomitory entrances: gaps in the back wall so spectators have an actual way from the concourse to their
+  // seats, each centred safely inside a straight run (not a rounded corner) and topped with a lit sign.
+  const total = pathLength(backPts);
+  const entranceW = 1.9;
+  const entranceCenters = [0.08, 0.5, 0.92].map((f) => f * total);
+  const gaps = entranceCenters.map((c) => ({ from: c - entranceW / 2, to: c + entranceW / 2 }));
+  group.add(ribbonH(backPts, 0, backH, backWallMat, 0.35, gaps));
   // a lighter coping strip at the top gives the wall a defined edge instead of just stopping
-  group.add(ribbonH(backPts, backH - 0.14, backH + 0.02, new THREE.MeshStandardMaterial({ color: 0x9aa1ab, roughness: 0.6 })));
+  group.add(ribbonH(backPts, backH - 0.14, backH + 0.02, new THREE.MeshStandardMaterial({ color: 0x9aa1ab, roughness: 0.6 }), 1, gaps));
+
+  // find the point nearest each entrance's centre distance, to place its sign and jamb facing the right way
+  let d = 0;
+  const atDistance = (target) => {
+    d = 0;
+    for (let i = 1; i < backPts.length; i++) {
+      const seg = Math.hypot(backPts[i].x - backPts[i - 1].x, backPts[i].z - backPts[i - 1].z);
+      if (d + seg >= target) { const t = (target - d) / seg; const a = backPts[i - 1], b = backPts[i]; return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, nx: a.nx, nz: a.nz }; }
+      d += seg;
+    }
+    return backPts[backPts.length - 1];
+  };
+  const jambMat = new THREE.MeshStandardMaterial({ color: 0x1c2029, roughness: 0.5, metalness: 0.4 });
+  const signMat = new THREE.MeshBasicMaterial({ color: 0x2fd66b });
+  for (const c of entranceCenters) {
+    const p = atDistance(c);
+    const ry = Math.atan2(p.nx, p.nz);
+    const g2 = new THREE.Group();
+    g2.position.set(p.x, 0, p.z);
+    g2.rotation.y = ry;
+    for (const side of [-1, 1]) {
+      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.14, backH, 0.3), jambMat);
+      jamb.position.set(side * (entranceW / 2 + 0.07), backH / 2, 0);
+      g2.add(jamb);
+    }
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(entranceW - 0.2, 0.32), signMat);
+    sign.position.set(0, 2.35, 0.16);
+    g2.add(sign);
+    group.add(g2);
+  }
 
   return { group, seats, backOffset: backOff };
 }
