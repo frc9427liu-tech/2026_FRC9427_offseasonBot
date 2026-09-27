@@ -219,7 +219,9 @@ export function createRobotLink(scene) {
     return true;
   };
   setInterval(() => {
-    if (!link.connected) return;
+    // a hidden tab doesn't drive: browsers throttle its timers to ~1 Hz, which would chop a held trigger into
+    // on/off pulses (and fight whichever window the driver is actually using)
+    if (!link.connected || document.hidden) return;
     if (!gamepadPad()) kbdPad();
     mergeTouch();
     const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v);
