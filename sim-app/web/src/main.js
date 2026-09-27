@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildField, FIELD_L, FIELD_W } from './field.js';
-import { initUI, setControlsInfo, setRobotDesc } from './ui.js';
+import { initUI, setControlsInfo, setRobotDesc, setProjectInfo } from './ui.js';
 import { t as tr } from './i18n.js';
 import { buildFuel } from './fuel.js';
 import { buildTags } from './tags.js';
@@ -88,8 +88,7 @@ const link = createRobotLink(scene);
 window.__link = link; // dev hook
 window.__lookAt = (px, py, pz, tx, ty, tz) => { camera.position.set(px, py, pz); controls.target.set(tx, ty, tz); controls.update(); }; // dev hook
 window.__link = link;
-let followRobot = false;
-const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), follow: document.getElementById('dsfollow'), bar: document.getElementById('dsbar') };
+const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), bar: document.getElementById('dsbar') };
 link.onStatus = (l) => {
   dsEl.bar.hidden = false;
   dsEl.state.textContent = !l.connected ? 'BRIDGE: OFFLINE' : !l.running ? 'ROBOT CODE: STOPPED' : l.state && l.state.hal ? 'ROBOT CODE: RUNNING' : 'ROBOT CODE: STARTING...';
@@ -99,7 +98,6 @@ link.onStatus = (l) => {
 };
 dsEl.en.onclick = () => link.setDs({ enabled: !link.ds.enabled });
 dsEl.mode.onclick = () => link.setDs({ autonomous: !link.ds.autonomous });
-dsEl.follow.onclick = () => { followRobot = !followRobot; dsEl.follow.classList.toggle('on', followRobot); };
 addEventListener('keydown', (e) => { if (e.code === 'Enter' && appState === 'game') link.setDs({ enabled: !link.ds.enabled }); });
 const scoreboards = buildScoreboards();
 scene.add(scoreboards.group);
@@ -205,10 +203,12 @@ function setAppState(next) {
     hud.exitLabel.textContent = tr('離開');
     renderer.shadowMap.autoUpdate = true;
     updateHud(); hudTimer = setInterval(updateHud, 250);
+    camButtons.querySelectorAll('[data-cam]').forEach((b) => { b.textContent = tr(b.dataset.label || (b.dataset.label = b.textContent)); });
+    setCamMode('free');
     VIEWS.top();
   } else {
     link.setDs({ enabled: false });   // leaving the match disables the robot, like closing the Driver Station
-    followRobot = false; dsEl.follow.classList.remove('on');
+    setCamMode('free');
     clearInterval(hudTimer);
     gameRoot.remove();
     document.body.insertBefore(lobbyRoot, canvas.nextSibling);
@@ -218,6 +218,53 @@ function setAppState(next) {
   applyPixelRatio();
 }
 hud.exit.onclick = () => setAppState('lobby');
+
+// ---------- in-game camera modes ----------
+// free:   orbit the whole arena (left-drag rotate, right-drag pan, wheel zoom)
+// driver: standing behind the blue alliance wall at driver eye height, looking down the field
+// follow: chase camera behind the robot, turning with it (wheel sets the distance)
+let camMode = 'free';
+const chase = { dist: 3.0, height: 2.3,   // high enough to see over the Tower / alliance wall behind the start line
+   look: new THREE.Vector3(), init: false };
+const camButtons = gameRoot.querySelector('#camModes');   // gameRoot is detached here: look it up through it
+function setCamMode(m) {
+  camMode = m;
+  controls.enabled = m === 'free';
+  camButtons.querySelectorAll('[data-cam]').forEach((b) => b.classList.toggle('on', b.dataset.cam === m));
+  if (m === 'driver') {
+    // a driver station just off-centre: dead centre is behind the Tower, and the end scoreboard's legs stand at +-1.7 m
+    camera.position.set(-0.7, 1.75, center.z + 1.0);
+    camera.lookAt(center.x * 0.6, 0.2, center.z + 0.4);
+  } else if (m === 'follow') chase.init = false;
+  else if (m === 'free' && link.robot.visible && appState === 'game') {
+    // hand the orbit over where the robot is, so switching back doesn't jump across the arena
+    controls.target.set(link.robot.position.x, 0.4, link.robot.position.z);
+    controls.update();
+  }
+}
+const _fwd = new THREE.Vector3(), _want = new THREE.Vector3(), _look = new THREE.Vector3();
+function updateChase(dt) {
+  const r = link.robot;
+  if (!r.visible) return;
+  _fwd.set(1, 0, 0).applyQuaternion(r.quaternion); _fwd.y = 0; _fwd.normalize();   // the model's nose is local +X
+  _want.copy(r.position).addScaledVector(_fwd, -chase.dist); _want.y = r.position.y + chase.height;
+  // stay inside the field: behind the alliance wall the Tower and the end scoreboard fill the view
+  _want.x = Math.min(FIELD_L * IN - 0.4, Math.max(0.4, _want.x));
+  _want.z = Math.min(-0.4, Math.max(-W_M + 0.4, _want.z));
+  _look.copy(r.position).addScaledVector(_fwd, 1.5); _look.y = r.position.y + 0.35;
+  const k = chase.init ? 1 - Math.exp(-dt * 6) : 1;
+  camera.position.lerp(_want, k);
+  chase.look.lerp(_look, chase.init ? k : 1);
+  chase.init = true;
+  camera.lookAt(chase.look);
+}
+camButtons.onclick = (e) => { const b = e.target.closest('[data-cam]'); if (b) setCamMode(b.dataset.cam); };
+canvas.addEventListener('wheel', (e) => { if (camMode === 'follow') chase.dist = Math.min(8, Math.max(1.5, chase.dist * (1 + e.deltaY * 0.001))); }, { passive: true });
+addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyV' || appState !== 'game' || e.repeat) return;
+  const order = ['free', 'driver', 'follow'];
+  setCamMode(order[(order.indexOf(camMode) + 1) % order.length]);
+});
 addEventListener('keydown', (e) => { if (e.key === 'Escape' && appState === 'game') setAppState('lobby'); });
 
 let last = performance.now(), frames = 0, acc = 0, lastLobbyFrame = 0;
@@ -239,12 +286,8 @@ renderer.setAnimationLoop((t) => {
   if (acc > 0.5) { hud.fps.textContent = `${Math.round(frames / acc)} FPS`; acc = 0; frames = 0; }
   controls.autoRotate = false;
   controls.update();
-  if (followRobot && link.robot.visible) {
-    const p = link.robot.position;
-    controls.target.lerp(new THREE.Vector3(p.x, 0.4, p.z), 0.12);
-    const dir = new THREE.Vector3().subVectors(camera.position, controls.target); dir.y = 0;
-    if (dir.length() > 5) camera.position.add(new THREE.Vector3().subVectors(controls.target, camera.position).setY(0).multiplyScalar(0.02));
-  }
+  if (camMode === 'follow') updateChase(dt);
+
   if (crowd) {
     crowd.update(Math.min(dt, 0.1));
     // auto density: shed spectators while the frame rate stays low, never below 35%
@@ -282,3 +325,6 @@ if (link.controls) link.onControls(link.controls);
 // ROBOT > 機構描述 edits the description the fuel rules read (link.desc); the bridge saves it per project
 link.onDesc = (desc) => { setRobotDesc(desc, { getState: () => link.state, save: (d) => link.saveDesc(d), motors: link.descMotors }); uiApi.refresh(); };
 if (link.desc) link.onDesc(link.desc);
+// ROBOT > 程式與按鍵: pick / switch the robot project from the UI (the bridge opens the folder dialog)
+link.onProject = (info) => { setProjectInfo(info, { pick: () => link.pickProject(), use: (p) => link.useProject(p) }); uiApi.refresh(); };
+if (link.project) link.onProject(link.project);

@@ -58,13 +58,15 @@
 <div id="hud">
   <button id="hudExit" class="hud-exit" title="Esc">‹ <span id="hudExitLabel">離開</span></button>
   <div class="hud-score"><span class="hs-b" id="hudBlue">0</span><span class="hs-t"><b id="hudTime">--:--</b><small id="hudPhase"></small></span><span class="hs-r" id="hudRed">0</span></div>
-  <span class="pill" id="hudFps">-- FPS</span>
+  <div class="hud-right">
+    <span class="pill" id="hudFps">-- FPS</span>
+    <div id="camModes" class="cam-modes" title="V"><button data-cam="free" id="camFree">自由</button><button data-cam="driver" id="camDriver">駕駛員</button><button data-cam="follow" id="camFollow">跟車</button></div>
+  </div>
 </div>
 <div id="dsbar" hidden>
   <span class="ds-chip" id="dsstate">ROBOT: --</span>
   <button class="ds-btn" id="dsen">ENABLE</button>
   <button class="ds-btn" id="dsmode">TELEOP</button>
-  <button class="ds-btn" id="dsfollow">FOLLOW</button>
 </div>
 </div>
 

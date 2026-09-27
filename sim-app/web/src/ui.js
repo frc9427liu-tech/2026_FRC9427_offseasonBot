@@ -110,6 +110,24 @@ export function setControlsInfo(info, keymap = {}) {
   page[1] = [val('控制器', tf.scanned(info.filesScanned), ctrl || t('未找到')), ...rows];
 }
 
+// ---- ROBOT > 程式與按鍵: which robot project the simulator runs (switchable without the command line) ----
+const projectCtx = { pick: () => {}, use: () => {} };
+const baseName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || '';
+export function setProjectInfo(info, { pick, use } = {}) {
+  if (pick) projectCtx.pick = pick;
+  if (use) projectCtx.use = use;
+  const page = MODALS.robot.pages.find((p) => p[0] === '程式與按鍵');
+  const rows = [val('機器人程式', info && info.project ? esc(info.project) : '', info && info.project ? esc(baseName(info.project)) : '未選擇')];
+  rows.push({ type: 'action', k: '換一個專案', hint: '跳出資料夾視窗，選有 gradlew 的那一層；選好會自動重新啟動機器人程式', label: info && info.busy ? '等待選擇…' : '選擇專案資料夾', act: 'pick' });
+  if (info && info.error) rows.push(val('無法載入', esc(info.error), ''));
+  for (const p of (info && info.recent) || []) {
+    if (p === info.project) continue;
+    rows.push({ type: 'action', k: esc(baseName(p)), hint: esc(p), label: '切換', act: 'use', arg: p });
+  }
+  rows.push(val('按鍵綁定', '自動從 RobotContainer 讀取', '見「操作」頁'));
+  page[1] = rows;
+}
+
 // ---- ROBOT > 機構描述: the robot description the game-piece rules use (bridge/mechanisms.mjs), editable ----
 // Each field is a number or a signal source; signal choices come from what the running code actually publishes
 // (NT topics) and the motors the sim sees, so the list always matches the loaded robot program.
@@ -227,7 +245,8 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
           const slots = AXIS_CONTROLS.includes(r.control) ? [['−', 0], ['+', 1]] : [['', 0]];
           right = `<span>${slots.map(([tag, s]) => `${tag ? `<small>${tag}</small>` : ''}<button class="bindbtn" data-bind="${r.control}" data-slot="${s}">${esc(keyLabel(codes[s]))}</button>`).join('')}</span>`;
         }
-      } else if (r.type === 'head') return `<div class="dhead">${t(r.k)}</div>`;
+      } else if (r.type === 'action') right = `<button class="bindbtn act" data-act="${r.act}" data-arg="${esc(r.arg || '')}">${t(r.label)}</button>`;
+      else if (r.type === 'head') return `<div class="dhead">${t(r.k)}</div>`;
       else if (r.type === 'num') right = `<input class="numin" type="number" step="${r.step}" data-path="${r.path}" value="${getPath(descCtx.desc, r.path) ?? ''}">`;
       else if (r.type === 'src') {
         const cur = getPath(descCtx.desc, r.path) || '';
@@ -255,6 +274,8 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
   }, 400);
   $('mlist').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { mpage = +b.dataset.p; renderModal(); } };
   $('mcontent').onclick = (e) => {
+    const act = e.target.closest('[data-act]');
+    if (act) { projectCtx[act.dataset.act](act.dataset.arg); return; }
     const kb = e.target.closest('[data-bind]');
     if (kb) { // rebind: the next key pressed becomes this control's key (Esc cancels)
       kb.textContent = t('按下按鍵…'); kb.classList.add('wait');

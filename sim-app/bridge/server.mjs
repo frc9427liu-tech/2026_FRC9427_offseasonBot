@@ -49,6 +49,65 @@ function watchProject(projectDir) {
   } catch { /* recursive watch unsupported: manual re-analyze still works */ }
 }
 
+// ---------- which robot project: remembered per machine in sim-config.json ----------
+// SIM_PROJECT (env) wins; otherwise the project last picked in the UI; otherwise this repo's own robot project.
+const CONFIG_FILE = path.join(here, '..', 'sim-config.json');
+const readConfig = () => { try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch { return {}; } };
+const config = readConfig();
+function currentProject() {
+  if (process.env.SIM_PROJECT) return process.env.SIM_PROJECT;
+  if (config.project && fs.existsSync(config.project)) return config.project;
+  const own = path.join(here, '..', '..', 'FRC9427_offseasonBot');
+  return fs.existsSync(path.join(own, 'build.gradle')) ? own : null;
+}
+function projectProblem(dir) {
+  if (!dir || !fs.existsSync(dir)) return 'folder not found';
+  if (!fs.existsSync(path.join(dir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'))) return 'no gradlew here (pick the folder that has gradlew / build.gradle)';
+  if (!fs.existsSync(path.join(dir, 'src', 'main', 'java'))) return 'no src/main/java here';
+  return null;
+}
+const projectInfo = () => ({ t: 'project', project: currentProject(), recent: (config.recent || []).filter((p) => fs.existsSync(p)) });
+// Switch the running robot program to another project folder: stop the current one, remember the choice,
+// start the new one (the UI gets the new controls / description as soon as it's analysed).
+async function switchProject(dir) {
+  dir = path.resolve(String(dir || ''));
+  const problem = projectProblem(dir);
+  if (problem) return { ok: false, error: problem };
+  delete process.env.SIM_PROJECT;   // an explicit choice in the UI overrides the start-up setting from now on
+  config.project = dir;
+  config.recent = [dir, ...(config.recent || []).filter((p) => p !== dir)].slice(0, 6);
+  try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2) + '\n'); } catch (e) { console.error('config:', e.message); }
+  if (robotProc) {
+    stopRobot();
+    for (let i = 0; i < 100 && robotProc; i++) await new Promise((r) => setTimeout(r, 100));
+  }
+  controlsInfo = null; robotDesc = null;
+  chassis.reset(2.0, 4.03, 0);
+  const r = startRobot(dir);
+  broadcast(projectInfo());
+  return r;
+}
+// Native folder picker (the browser can't hand over a real path). Runs on the machine the bridge is on.
+function pickFolder() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve(null);
+    const ps = [
+      '[Console]::OutputEncoding=[Text.Encoding]::UTF8',
+      'Add-Type -AssemblyName System.Windows.Forms',
+      '$d=New-Object System.Windows.Forms.FolderBrowserDialog',
+      "$d.Description='WPILib robot project folder (the one with gradlew / build.gradle)'",
+      '$d.ShowNewFolderButton=$false',
+      `$d.SelectedPath='${(currentProject() || '').replace(/'/g, "''")}'`,
+      '$f=New-Object System.Windows.Forms.Form -Property @{TopMost=$true}',
+      "if($d.ShowDialog($f) -eq 'OK'){[Console]::Out.Write($d.SelectedPath)}",
+    ].join('; ');
+    const p = spawn('powershell.exe', ['-NoProfile', '-STA', '-Command', ps], { windowsHide: true });
+    let out = '';
+    p.stdout.on('data', (b) => { out += b.toString('utf8'); });
+    p.on('exit', () => resolve(out.trim() || null));
+    p.on('error', () => resolve(null));
+  });
+}
 // ---------- robot process ----------
 let robotProc = null;
 function findJdk() {
@@ -260,19 +319,22 @@ const wss = new WebSocketServer({ port: UI_PORT });
 wss.on('connection', (ws) => {
   clients.add(ws);
   send(ws, { t: 'hello', running: state.robot.running, project: state.robot.project, log: state.robot.log.slice(-60) });
-  if (!controlsInfo && process.env.SIM_PROJECT) analyze(process.env.SIM_PROJECT);
+  send(ws, projectInfo());
+  if (!controlsInfo && currentProject()) analyze(currentProject());
   if (controlsInfo) send(ws, { t: 'controls', data: controlsInfo });
   if (robotDesc) send(ws, { t: 'robotDesc', desc: robotDesc, motors: codeMotors });
   ws.on('message', (raw) => {
     let m; try { m = JSON.parse(raw); } catch { return; }
-    if (m.t === 'start') send(ws, { t: 'startResult', ...startRobot(m.project || process.env.SIM_PROJECT) });
+    if (m.t === 'start') send(ws, { t: 'startResult', ...startRobot(m.project || currentProject()) });
     else if (m.t === 'stop') stopRobot();
+    else if (m.t === 'pickProject') pickFolder().then((dir) => (dir ? switchProject(dir) : { ok: false, cancelled: true })).then((r) => send(ws, { t: 'projectResult', ...r }));
+    else if (m.t === 'setProject') switchProject(m.project).then((r) => send(ws, { t: 'projectResult', ...r }));
     else if (m.t === 'resetPose') chassis.reset(m.x ?? 2, m.y ?? 4, m.deg ?? 0);
     else if (m.t === 'devices') send(ws, { t: 'devices', devices: state.hal.devices, mech: mechInfo });
     else if (m.t === 'saveRobotDesc' && m.desc) {
-      const dir = descProject || state.robot.project || process.env.SIM_PROJECT;
+      const dir = descProject || state.robot.project || currentProject();
       if (dir) { try { robotDesc = saveRobotDesc(dir, m.desc); broadcast({ t: 'robotDesc', desc: robotDesc, motors: codeMotors }); } catch (e) { send(ws, { t: 'error', error: String(e.message || e) }); } }
-    } else if (m.t === 'analyze') analyze(m.project || process.env.SIM_PROJECT);
+    } else if (m.t === 'analyze') analyze(m.project || currentProject());
     else if (m.t === 'ds') Object.assign(ds, { enabled: !!m.enabled, autonomous: !!m.autonomous, test: !!m.test, estop: !!m.estop });
     else if (m.t === 'joy') joys[m.index ?? 0] = { axes: m.axes || [], buttons: m.buttons || [], povs: m.povs || [] };
   });
@@ -289,4 +351,5 @@ connectHal();
 connectNt();
 process.on('SIGINT', () => { stopRobot(); process.exit(0); });
 console.log(`sim bridge listening on ws://localhost:${UI_PORT}`);
-if (process.env.SIM_PROJECT && process.env.SIM_AUTOSTART !== '0') startRobot(process.env.SIM_PROJECT);
+if (currentProject() && process.env.SIM_AUTOSTART !== '0') startRobot(currentProject());
+else if (!currentProject()) console.log('no robot project yet: pick one in the UI (Robot > Code & bindings)');

@@ -144,6 +144,8 @@ export function createRobotLink(scene) {
       } else if (m.t === 'controls') { link.controls = m.data; if (link.onControls) link.onControls(m.data); }
       else if (m.t === 'log') { link.log.push(m.line); if (link.log.length > 200) link.log.shift(); }
       else if (m.t === 'hello') { link.log = m.log || []; }
+      else if (m.t === 'project') { link.project = { project: m.project, recent: m.recent || [], busy: false, error: null }; if (link.onProject) link.onProject(link.project); }
+      else if (m.t === 'projectResult') { link.project = { ...(link.project || {}), busy: false, error: m.ok || m.cancelled ? null : m.error }; if (link.onProject) link.onProject(link.project); }
       else if (m.t === 'robotDesc') { link.desc = m.desc; link.descMotors = m.motors || []; if (link.onDesc) link.onDesc(m.desc); }
     };
   }
@@ -153,6 +155,10 @@ export function createRobotLink(scene) {
   // put the simulated chassis back on the blue start line (field coordinates, metres / degrees)
   link.resetPose = (x = 2.0, y = 4.03, deg = 0) => send({ t: 'resetPose', x, y, deg });
   link.stop = () => send({ t: 'stop' });
+  // robot project: native folder picker on the bridge's machine, or a folder from the recent list
+  const projectBusy = () => { link.project = { ...(link.project || {}), busy: true, error: null }; if (link.onProject) link.onProject(link.project); };
+  link.pickProject = () => { projectBusy(); send({ t: 'pickProject' }); };
+  link.useProject = (dir) => { projectBusy(); send({ t: 'setProject', project: dir }); };
   link.saveDesc = (desc) => { link.desc = desc; send({ t: 'saveRobotDesc', desc }); };
   link.setDs = (patch) => { Object.assign(link.ds, patch); send({ t: 'ds', enabled: link.ds.enabled, autonomous: link.ds.autonomous }); };
 
