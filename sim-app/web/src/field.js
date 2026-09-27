@@ -62,6 +62,8 @@ roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.to
 function material(base, alliance, elName) {
   const paint = ALLIANCE[alliance];
   const coat = { roughness: 0.46, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.32 };
+  // the HUB's frame is bare aluminium (official photos); the alliance colour is only on the floor plates and bumps
+  if (near(base, 0.82, 0.49, 0.21) && elName === 'hub') return enhance(new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.34, metalness: 0.9 }), { rough: 0.25, edge: 1.2 });
   if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
   if (near(base, 0.83, 0.60, 0.39)) {
     if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
@@ -69,7 +71,7 @@ function material(base, alliance, elName) {
     return enhance(new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 }), { edge: 0.8 });
   }
   if (near(base, 0.60, 0.60, 0.60)) return enhance(new THREE.MeshStandardMaterial({ color: 0xb4bbc4, roughness: 0.42, metalness: 1 }), { rough: 0.3, edge: 1.2 });
-  if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshPhysicalMaterial({ color: 0xdfeaf5, roughness: 0.12, metalness: 0, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false, clearcoat: 1 }); // HUB funnel is clear polycarbonate
+  if (near(base, 0.82, 0.82, 0.82)) return new THREE.MeshPhysicalMaterial({ color: 0xe8f2ff, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.2, side: THREE.DoubleSide, depthWrite: false }); // HUB funnel is clear polycarbonate
   if (near(base, 0.38, 0.38, 0.38)) return new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.6, metalness: 0.3 });
   return new THREE.MeshStandardMaterial({ color: base, roughness: 0.55, metalness: 0.2 });
 }
@@ -114,7 +116,21 @@ function signTexture() {
   return t;
 }
 
-function hubDetails() {
+// net panel texture: dark cord grid on transparent
+function netTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.strokeStyle = '#0c0d10'; g.lineWidth = 5;
+  g.beginPath(); g.moveTo(0, 32); g.lineTo(64, 32); g.moveTo(32, 0); g.lineTo(32, 64); g.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
+// Local frame: +x toward the neutral zone, -x toward the alliance wall, y up.
+function hubDetails(alliance) {
   const g = new THREE.Group();
   const half = 23.9 * IN;
   const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.14, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
@@ -132,6 +148,30 @@ function hubDetails() {
     }
     g.add(holder);
   }
+  // frosted, LED-lit roof that slopes up toward the funnel (blue or red glow like the real HUB)
+  const glow = alliance === 'blue' ? 0x2456d8 : 0xd8283a;
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(0.735, 0.85, 0.16, 4, 1, true), new THREE.MeshStandardMaterial({ color: 0xf1f4fb, roughness: 0.55, emissive: glow, emissiveIntensity: 0.16, side: THREE.DoubleSide }));
+  roof.rotation.y = Math.PI / 4; roof.position.y = 1.42 + 0.08;
+  g.add(roof);
+  // aluminium posts and the net behind the HUB (keeps FUEL from the prohibited side out of the opening)
+  const alu = new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.3, metalness: 0.9 });
+  const lean = 0.13, top = 3.35, y0 = 1.4, len = (top - y0) / Math.cos(lean);
+  const frame = new THREE.Group();
+  frame.position.set(-0.6, y0, 0);
+  frame.rotation.z = lean;
+  for (const z of [-0.58, 0.58]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, len, 10), alu);
+    post.position.set(0, len / 2, z);
+    frame.add(post);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.2, 10), alu);
+  bar.rotation.x = Math.PI / 2; bar.position.set(0, len, 0);
+  frame.add(bar);
+  const nt = netTexture(); nt.repeat.set(1.16 / 0.06, (len - 0.1) / 0.06);
+  const net = new THREE.Mesh(new THREE.PlaneGeometry(1.16, len - 0.1), new THREE.MeshBasicMaterial({ map: nt, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+  net.rotation.y = Math.PI / 2; net.position.set(0, (len - 0.1) / 2 + 0.05, 0);
+  frame.add(net);
+  g.add(frame);
   return g;
 }
 async function loadJson(url) {
@@ -271,7 +311,7 @@ export async function buildField(base = './models/') {
         const y = alliance === 'blue' ? iy : FIELD_W - iy;
         holder.position.set(x * IN, 0, -y * IN);
         if (alliance === 'red') holder.rotation.y = Math.PI;
-        if (el.name === 'hub') holder.add(hubDetails());
+        if (el.name === 'hub') holder.add(hubDetails(alliance));
         holder.userData = { element: el.name, alliance, size: size.toArray() };
         root.add(holder);
       }
