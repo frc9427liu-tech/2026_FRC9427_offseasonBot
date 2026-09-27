@@ -136,7 +136,9 @@ composer.addPass(new RenderPass(scene, camera));
 const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
 Object.assign(window.__dbg, { scene, ao, renderer });
 ao.output = GTAOPass.OUTPUT.Default;
-ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1.1, samples: 12 });
+// radius up a bit (was missing the taller contact lines - stand risers, table legs) so more of the scene
+// actually gets the "grounded" contact-shadow look instead of floating free of its own shadow
+ao.updateGtaoMaterial({ radius: 0.55, distanceExponent: 1.4, thickness: 1, scale: 1.25, samples: 12 });
 composer.addPass(ao);
 // Subtle warm glow around bright lights/screens - the reference look has this atmospheric quality that a
 // flat, unbloomed render (what every screenshot so far has been) can't reach no matter what colour the

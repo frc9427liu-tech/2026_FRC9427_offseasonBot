@@ -91,6 +91,23 @@ function floorTexture() {
   return t;
 }
 
+// Micro-roughness variation so the gloss isn't perfectly uniform (a sealed gym floor has faint wear/scuff
+// patches), not a texture map - just noise, so it stays cheap and tileable at any repeat.
+function floorRoughnessTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#5c5c5c'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 400; i++) {
+    const v = 60 + Math.floor(Math.random() * 90);
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 6, 0, Math.PI * 2); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
 export function buildVenue() {
   const g = new THREE.Group();
   const cx = L / 2, cz = -W / 2;
@@ -98,11 +115,15 @@ export function buildVenue() {
   // back wall stops around field-edge + 9.5 m); tightened to a walkable ~3 m so the room isn't mostly empty.
   const X0 = -12.5, X1 = L + 12.5, Zfar = -W - 12.5, Znear = 17, H = 13;
 
-  // Floor: wood-look concourse beyond the field/stands (which keep their own carpet/deck untouched)
+  // Floor: wood-look concourse beyond the field/stands (which keep their own carpet/deck untouched) -
+  // sealed-gym-floor gloss: lower base roughness, a roughness map for faint uneven wear, and enough
+  // envMapIntensity to actually pick up the room reflection (IBL) instead of reading as a flat diffuse map.
   const ftex = floorTexture();
+  const frough = floorRoughnessTexture();
   ftex.repeat.set((X1 - X0 + 4) / 3, (Znear - Zfar + 4) / 3);
+  frough.repeat.set((X1 - X0 + 4) / 2, (Znear - Zfar + 4) / 2);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 4, Znear - Zfar + 4),
-    new THREE.MeshStandardMaterial({ map: ftex, roughness: 0.45 }));
+    new THREE.MeshStandardMaterial({ map: ftex, roughnessMap: frough, roughness: 0.28, envMapIntensity: 0.8 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, -0.012, (Znear + Zfar) / 2);
   floor.receiveShadow = true;
