@@ -6,7 +6,7 @@ const IN = 0.0254;
 export const FIELD_L = 651.2;
 export const FIELD_W = 317.7;
 
-const ALLIANCE = { blue: 0x2f7fe8, red: 0xe0353f };
+const ALLIANCE = { blue: 0x06308a, red: 0x8c1220 };   // deep, saturated: reads as the real painted plates under the arena lights
 
 // Blue-side placements (inches). Red side is the same rotated 180 deg about the field center.
 // `anchor` picks which bbox point of the raw model lands on (x,y): 'c' = center, 'wall' = min-X face on x.
@@ -61,12 +61,12 @@ roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.to
 // The CAD ships default STEP colours; map them to real materials (see official field photos).
 function material(base, alliance, elName) {
   const paint = ALLIANCE[alliance];
-  const coat = { roughness: 0.46, metalness: 0.05, clearcoat: 0.55, clearcoatRoughness: 0.32 };
+  const coat = { roughness: 0.6, metalness: 0.02, clearcoat: 0.15, clearcoatRoughness: 0.5 };
   // the HUB's frame is bare aluminium (official photos); the alliance colour is only on the floor plates and bumps
   if (near(base, 0.82, 0.49, 0.21) && elName === 'hub') return enhance(new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.34, metalness: 0.9 }), { rough: 0.25, edge: 1.2 });
-  if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
+  if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25 });
   if (near(base, 0.83, 0.60, 0.39)) {
-    if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }));
+    if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25 });
     const c = elName === 'depot' ? 0x8b9198 : 0x14171c;
     return enhance(new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 }), { edge: 0.8 });
   }
@@ -135,10 +135,12 @@ function hubDetails(alliance) {
   const half = 23.9 * IN;
   const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xcfe6ff, transparent: true, opacity: 0.14, roughness: 0.05, side: THREE.DoubleSide, depthWrite: false });
   const sign = new THREE.MeshStandardMaterial({ map: signTexture(), roughness: 0.5 });
+  // the faces that carry the REBUILT sign are solid dark navy panels (see the match photos)
+  const navyPanel = new THREE.MeshStandardMaterial({ color: alliance === 'blue' ? 0x0a1c47 : 0x3d0d14, roughness: 0.55, side: THREE.DoubleSide });
   for (let i = 0; i < 4; i++) {
     const holder = new THREE.Group();
     holder.rotation.y = i * Math.PI / 2;
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(45 * IN, 34 * IN), glassMat);
+    const glass = new THREE.Mesh(new THREE.PlaneGeometry(45 * IN, 34 * IN), i % 2 === 0 ? navyPanel : glassMat);
     glass.position.set(0, 20 * IN, half);
     holder.add(glass);
     if (i % 2 === 0) { // the two faces without the tag pairs facing the bumps carry the sign
@@ -184,14 +186,19 @@ function carpet() {
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#464a51';
+  // dark charcoal pile flecked with black and grey (official carpet is a dark grey with visible speckle)
+  g.fillStyle = '#25282d';
   g.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 9000; i++) {
-    const v = 58 + Math.random() * 30;
-    g.fillStyle = `rgb(${v},${v + 4},${v + 10})`;
-    g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+  for (let i = 0; i < 16000; i++) {
+    const v = 14 + Math.random() * 20;            // near-black flecks
+    g.fillStyle = `rgb(${v},${v + 1},${v + 4})`;
+    g.fillRect(Math.random() * 512, Math.random() * 512, 2 + Math.random() * 2, 2 + Math.random() * 2);
   }
-  const t = new THREE.CanvasTexture(c);
+  for (let i = 0; i < 9000; i++) {
+    const v = 52 + Math.random() * 40;            // lighter grey flecks
+    g.fillStyle = `rgb(${v},${v + 3},${v + 8})`;
+    g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+  }  const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(FIELD_L / 40, FIELD_W / 40);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -238,13 +245,13 @@ export async function buildField(base = './models/') {
 
   // Alliance zone tape (158.6 in deep) and center line
   const zone = 158.6;
-  root.add(strip(zone - 1, 0, 2, FIELD_W, 0x2f7fe8));
-  root.add(strip(FIELD_L - zone - 1, 0, 2, FIELD_W, 0xe0353f));
+  root.add(strip(zone - 1, 0, 2, FIELD_W, 0x1454c9));
+  root.add(strip(FIELD_L - zone - 1, 0, 2, FIELD_W, 0xc9202f));
   root.add(strip(FIELD_L / 2 - 1, 0, 2, FIELD_W, 0xdfe6ee));
 
   // Alliance-colored floor bands near the walls
-  root.add(strip(0, 0, 12, FIELD_W, 0x1d4f99));
-  root.add(strip(FIELD_L - 12, 0, 12, FIELD_W, 0x9c2530));
+  root.add(strip(0, 0, 12, FIELD_W, 0x0c3a8a));
+  root.add(strip(FIELD_L - 12, 0, 12, FIELD_W, 0x8a1824));
 
   // Perimeter: low polycarbonate guardrails on the long sides, diamond plate + glass at the alliance walls.
   const L = FIELD_L * IN, W = FIELD_W * IN;
