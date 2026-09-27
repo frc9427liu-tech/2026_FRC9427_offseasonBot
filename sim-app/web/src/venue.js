@@ -134,30 +134,63 @@ export function buildVenue() {
     banner(X1 - 0.05, 6.4, z, -Math.PI / 2, '#c8202f', 'RED ALLIANCE');
   }
 
-  // Ceiling with steel trusses and light panels
+  // Ceiling: exposed steel bar-joist trusses under a corrugated roof deck, chain-hung can lights and a
+  // speaker/truss rig - not a finished drop ceiling with flush panels (reference: real FRC venues are
+  // gyms/expo halls with the structure exposed, e.g. assets-src venue photos, FIRST Championship photos).
+  const deckTex = (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g2 = c.getContext('2d');
+    g2.fillStyle = '#3a4048'; g2.fillRect(0, 0, 64, 64);
+    g2.strokeStyle = 'rgba(0,0,0,.35)'; g2.lineWidth = 3;
+    for (let x = 0; x <= 64; x += 8) { g2.beginPath(); g2.moveTo(x, 0); g2.lineTo(x, 64); g2.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  })();
+  deckTex.repeat.set((X1 - X0) / 1.2, (Znear - Zfar) / 1.2);
   const ceil = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Znear - Zfar),
-    new THREE.MeshStandardMaterial({ color: 0x8f95a0, roughness: 0.95, side: THREE.DoubleSide }));   // was near-white
+    new THREE.MeshStandardMaterial({ map: deckTex, roughness: 0.8, metalness: 0.4, side: THREE.DoubleSide }));
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(cx, H, (Znear + Zfar) / 2);
   g.add(ceil);
   const steel = new THREE.MeshStandardMaterial({ color: 0x6d7580, roughness: 0.5, metalness: 0.8 });
-  for (let i = 0; i < 8; i++) {
-    const x = X0 + (i + 0.5) * (X1 - X0) / 8;
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.5, Znear - Zfar), steel);
-    beam.position.set(x, H - 0.4, (Znear + Zfar) / 2);
-    g.add(beam);
-  }
-  const panelMat = new THREE.MeshBasicMaterial({ color: 0xe4dcc3 });   // warm light panel, dimmed so it reads as a lit fixture, not a blown-out card
+  const nTruss = 8;
   const spots = [];
-  const nx = 8, nz = 5;
-  for (let i = 0; i < nx; i++) {
-    for (let j = 0; j < nz; j++) {
-      const x = X0 + (i + 0.5) * (X1 - X0) / nx + 2;
-      const z = Zfar + (j + 0.5) * (Znear - Zfar) / nz;
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 1.2), panelMat);
-      panel.position.set(x, H - 0.75, z);
-      g.add(panel);
-      spots.push([x, z]);
+  for (let i = 0; i < nTruss; i++) {
+    const x = X0 + (i + 0.5) * (X1 - X0) / nTruss;
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, Znear - Zfar), steel);
+    top.position.set(x, H - 0.15, (Znear + Zfar) / 2);
+    g.add(top);
+    const bot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, Znear - Zfar), steel);
+    bot.position.set(x, H - 0.75, (Znear + Zfar) / 2);
+    g.add(bot);
+    // zig-zag web bracing between the two chords, like a real bar-joist truss
+    const nSeg = 14, segLen = (Znear - Zfar) / nSeg;
+    const webLen = Math.hypot(segLen, 0.6);
+    for (let s = 0; s < nSeg; s++) {
+      const z = Zfar + (s + 0.5) * segLen;
+      const web = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, webLen, 6), steel);
+      web.position.set(x, H - 0.45, z);
+      web.rotation.x = (s % 2 ? 1 : -1) * Math.atan(segLen / 0.6);
+      g.add(web);
+    }
+    // a light or a speaker cluster hangs from every other truss on a short chain
+    for (let j = 0; j < 4; j++) {
+      const z = Zfar + (j + 0.5) * (Znear - Zfar) / 4;
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.8, 5), steel);
+      chain.position.set(x, H - 1.15, z);
+      g.add(chain);
+      if (i % 2 === 0) {
+        const fixture = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.16, 12), new THREE.MeshStandardMaterial({ color: 0x1c1f24, roughness: 0.5, metalness: 0.6 }));
+        fixture.position.set(x, H - 1.55, z);
+        g.add(fixture);
+        const lens = new THREE.Mesh(new THREE.CircleGeometry(0.19, 12), new THREE.MeshBasicMaterial({ color: 0xe4dcc3 }));
+        lens.rotation.x = Math.PI / 2; lens.position.set(x, H - 1.63, z);
+        g.add(lens);
+        spots.push([x, z]);
+      } else if (j === 1 || j === 2) {
+        const spk = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.4), new THREE.MeshStandardMaterial({ color: 0x101215, roughness: 0.7 }));
+        spk.position.set(x, H - 1.6, z);
+        g.add(spk);
+      }
     }
   }
   // Light pools on the floor: stronger over the field, softer over the stands. Every real light costs every
