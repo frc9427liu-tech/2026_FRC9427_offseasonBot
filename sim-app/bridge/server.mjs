@@ -183,6 +183,8 @@ function summary() {
     // simulated chassis (from the real wheels) when the robot is a known drivetrain, else whatever the code publishes
     pose: chassis.cfg && state.robot.running ? [chassis.pose.x, chassis.pose.y, (chassis.pose.theta * 180) / Math.PI]
       : Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
+    // BUMP ramp height/tilt, degrees/metres, field-frame (only meaningful alongside the simulated pose above)
+    terrain: chassis.cfg ? { z: chassis.pose.z || 0, pitch: ((chassis.pitch || 0) * 180) / Math.PI, roll: ((chassis.roll || 0) * 180) / Math.PI } : null,
     chassisDebug: chassis.debug,
     robotPose: Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
     ds, motors, values: numeric, rotors: motorSim.snapshot(),

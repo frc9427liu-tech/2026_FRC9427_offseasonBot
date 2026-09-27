@@ -12,6 +12,28 @@ const OBSTACLES = [                          // axis-aligned boxes: cx, cy, half
   [FIELD_L - HUB_X, FIELD_W / 2, HUB / 2, HUB / 2],
 ];
 
+// BUMP (manual 2026, arena ch.): 73.0in wide (Y) x 44.4in deep (X, the ramp/drive direction) x 6.513in tall,
+// centred between the alliance wall and the HUB on both sides of it - one pair per alliance (4 total).
+// Modelled as a simple ramp-up-then-down "tent" profile along X: height 0 at the footprint edge, full
+// height at the centre. (The manual's 15 deg ramp angle and these dimensions don't quite reconcile to a
+// flat-topped plateau - this shape keeps the real height and footprint and is close enough for sim feel.)
+const BUMP_HALF_DEPTH = 44.4 * 0.0254 / 2, BUMP_HALF_WIDTH = 73.0 * 0.0254 / 2, BUMP_HEIGHT = 6.513 * 0.0254;
+const BUMPS = [102.15, 317.7 - 102.15].flatMap((y) => [181.56, 651.2 - 181.56].map((x) => ({ x: x * 0.0254, y: y * 0.0254 })));
+
+// Terrain at a field point: ground height and its slope (dz/dx, dz/dy), used both to lift the chassis
+// visually and to feed the robot's gyro real pitch/roll (its own code already reads tilt - see
+// CommandSwerveDrivetrain.isClimbing() - to tell when it's driving over a BUMP).
+function terrainAt(x, y) {
+  for (const b of BUMPS) {
+    const ld = x - b.x, lw = y - b.y;
+    if (Math.abs(lw) > BUMP_HALF_WIDTH || Math.abs(ld) > BUMP_HALF_DEPTH) continue;
+    const z = BUMP_HEIGHT * (1 - Math.abs(ld) / BUMP_HALF_DEPTH);
+    const dzdx = -Math.sign(ld) * (BUMP_HEIGHT / BUMP_HALF_DEPTH);
+    return { z, dzdx, dzdy: 0 };
+  }
+  return { z: 0, dzdx: 0, dzdy: 0 };
+}
+
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
 export class SwerveChassis {
@@ -55,8 +77,22 @@ export class SwerveChassis {
     this.pose.theta = wrap(th + omega * dt);
     this._collide();
 
+    // BUMP ramp: lift the chassis and tilt it into the robot's own pitch/roll axes
+    const terrain = terrainAt(this.pose.x, this.pose.y);
+    this.pose.z = terrain.z;
+    const fwd = [Math.cos(this.pose.theta), Math.sin(this.pose.theta)];
+    const right = [Math.sin(this.pose.theta), -Math.cos(this.pose.theta)];
+    const grad = [terrain.dzdx, terrain.dzdy];
+    this.pitch = Math.atan(grad[0] * fwd[0] + grad[1] * fwd[1]);
+    this.roll = Math.atan(grad[0] * right[0] + grad[1] * right[1]);
+
     if (!c.gyro || process.env.SIM_NOGYRO) return [];
-    return [{ type: 'CANGyro', device: c.gyro, data: { '>rawYawInput': (this.pose.theta * 180) / Math.PI, '>angularVelZ': (omega * 180) / Math.PI } }];
+    return [{
+      type: 'CANGyro', device: c.gyro, data: {
+        '>rawYawInput': (this.pose.theta * 180) / Math.PI, '>angularVelZ': (omega * 180) / Math.PI,
+        '>pitch': (this.pitch * 180) / Math.PI, '>roll': (this.roll * 180) / Math.PI,
+      },
+    }];
   }
 
   // push the robot's rectangle out of the perimeter and the Hubs (SAT against axis-aligned boxes)

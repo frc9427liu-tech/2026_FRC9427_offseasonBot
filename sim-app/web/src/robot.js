@@ -115,8 +115,13 @@ export function createRobotLink(scene) {
         if (m.pose) {
           // WPILib field coordinates (m, deg): +X toward red, +Y away from the scoring table (= -Z in the scene)
           robot.visible = true;
-          robot.position.set(m.pose[0], 0, -m.pose[1]);
-          robot.rotation.y = THREE.MathUtils.degToRad(m.pose[2]);
+          const t = m.terrain;   // BUMP ramp lift/tilt from the bridge's chassis physics, if simulated
+          robot.position.set(m.pose[0], t ? t.z : 0, -m.pose[1]);
+          // This placeholder model's nose points local +X (see buildPlaceholderRobot), not the usual +Z, so
+          // "pitch" (tilt about the forward axis' perpendicular) lands on local Z and "roll" (bank around
+          // the forward axis itself) lands on local X - 'YZX' applies yaw first, then those, in that frame.
+          robot.rotation.order = 'YZX';
+          robot.rotation.set(t ? THREE.MathUtils.degToRad(t.roll) : 0, THREE.MathUtils.degToRad(m.pose[2]), t ? THREE.MathUtils.degToRad(t.pitch) : 0);
           if (link.onPose) link.onPose(m.pose);
         }
         link.onStatus(link);
