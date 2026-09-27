@@ -137,10 +137,19 @@ export function buildVenue() {
       spots.push([x, z]);
     }
   }
-  // spot pools on the floor: stronger over the field, softer over the stands
-  for (const [x, z] of spots) {
+  // Light pools on the floor: stronger over the field, softer over the stands. Every real light costs every
+  // fragment of every lit material, so the 40 panels are lit by only 12 wider spots.
+  const lights = [];
+  const lnx = 4, lnz = 3;
+  for (let i = 0; i < lnx; i++) {
+    for (let j = 0; j < lnz; j++) {
+      lights.push([X0 + (i + 0.5) * (X1 - X0) / lnx + 2, Zfar + (j + 0.5) * (Znear - Zfar) / lnz]);
+    }
+  }
+  const boost = spots.length / lights.length;
+  for (const [x, z] of lights) {
     const overField = x > -2 && x < L + 2 && z > -W - 2 && z < 2;
-    const s = new THREE.SpotLight(0xfff2de, overField ? 60 : 26, 34, 0.7, 0.85, 1.1);
+    const s = new THREE.SpotLight(0xfff2de, (overField ? 60 : 26) * boost, 46, 0.95, 0.9, 1.1);
     s.position.set(x, H - 0.8, z);
     s.target.position.set(x, 0, z);
     g.add(s, s.target);
