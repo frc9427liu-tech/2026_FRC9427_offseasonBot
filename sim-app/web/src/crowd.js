@@ -107,9 +107,10 @@ export async function buildCrowd({ occupancy = 0.55, seed = 7 } = {}) {
   // Staff, referees and drive teams standing on the floor (standing clip set); never culled by the density setting.
   const BLACK = [0.07, 0.07, 0.08], NAVY = [0.08, 0.12, 0.3], WHITE = [0.92, 0.92, 0.92];
   const ADULT = { shirtAmt: 0.95, pantsAmt: 0.9 };
-  const staff = (o) => spawn({ y: 0, stand: true, essential: true, side: 'ref', reacts: false, ...o });
-  for (const x of [L * 0.14, L * 0.36, L * 0.64, L * 0.86]) staff({ x, z: 1.05, fx: 0, fz: -1, look: { ...ADULT, shirt: BLACK, pants: BLACK } });
-  for (const x of [L * 0.42, L * 0.5, L * 0.58]) staff({ x, z: 3.15, fx: 0, fz: -1, look: { ...ADULT, shirt: NAVY, pants: BLACK } });
+  const badged = [];   // referees/officials/FTA get an event lanyard - drive team and staff at the DS shelf don't
+  const staff = (o, wantsBadge) => { const p = spawn({ y: 0, stand: true, essential: true, side: 'ref', reacts: false, ...o }); if (wantsBadge) badged.push(p); return p; };
+  for (const x of [L * 0.14, L * 0.36, L * 0.64, L * 0.86]) staff({ x, z: 1.05, fx: 0, fz: -1, look: { ...ADULT, shirt: BLACK, pants: BLACK } }, true);
+  for (const x of [L * 0.42, L * 0.5, L * 0.58]) staff({ x, z: 3.15, fx: 0, fz: -1, look: { ...ADULT, shirt: NAVY, pants: BLACK } }, true);
   for (const sy of [W * 0.17, W * 0.5, W * 0.83]) {
     for (const k of [0, 1]) {
       const off = (k - 0.5) * 0.7;
@@ -117,9 +118,31 @@ export async function buildCrowd({ occupancy = 0.55, seed = 7 } = {}) {
       staff({ x: L + 1.0, z: -sy + off, fx: -1, fz: 0, side: 'red', reacts: true, look: { ...ADULT, shirt: [0.92, 0.16, 0.2] } });
     }
   }
-  for (const [x, z] of [[-3.2, 2.4], [-2.4, 3.6], [L + 3.2, 2.4], [L + 2.4, 3.6]]) staff({ x, z, fx: 0.6, fz: -1, look: { shirt: NAVY, shirtAmt: 0.95, pantsAmt: 0.85, pants: BLACK } });
-  for (const [x, z, fz] of [[L * 0.22, 4.95, -1], [L * 0.78, 4.95, -1], [-4.4, -W / 2 - 0.6, 1]]) staff({ x, z, fx: 0, fz, look: { shirt: BLACK, shirtAmt: 0.95, pants: BLACK, pantsAmt: 0.9 } });
-  staff({ x: -6.5, z: 6.4, fx: 0.2, fz: -1, look: { shirt: WHITE, shirtAmt: 0.9, pants: BLACK, pantsAmt: 0.9 } });
+  for (const [x, z] of [[-3.2, 2.4], [-2.4, 3.6], [L + 3.2, 2.4], [L + 2.4, 3.6]]) staff({ x, z, fx: 0.6, fz: -1, look: { shirt: NAVY, shirtAmt: 0.95, pantsAmt: 0.85, pants: BLACK } }, true);
+  for (const [x, z, fz] of [[L * 0.22, 4.95, -1], [L * 0.78, 4.95, -1], [-4.4, -W / 2 - 0.6, 1]]) staff({ x, z, fx: 0, fz, look: { shirt: BLACK, shirtAmt: 0.95, pants: BLACK, pantsAmt: 0.9 } }, true);
+  staff({ x: -6.5, z: 6.4, fx: 0.2, fz: -1, look: { shirt: WHITE, shirtAmt: 0.9, pants: BLACK, pantsAmt: 0.9 } }, true);
+
+  // Event lanyard + badge: every event has officials wearing one, and it's a small enough detail that a
+  // solid colour "shirt" can't already suggest it - a real prop reads more like actual staff than a bystander.
+  {
+    const strapMat = new THREE.MeshStandardMaterial({ color: 0x1a3a8a, roughness: 0.8 });
+    const cardMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f0, roughness: 0.4, metalness: 0.1 });
+    for (const p of badged) {
+      const g = new THREE.Group();
+      g.position.set(p.x, p.y, p.z);
+      g.rotation.y = p.yaw;   // spawn() already stored this; it's exactly the character mesh's own rotation
+      for (const side of [-1, 1]) {
+        const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.13, 5), strapMat);
+        strap.position.set(side * 0.045, 1.4, 0.09);
+        strap.rotation.x = side * 0.55;
+        g.add(strap);
+      }
+      const card = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.004), cardMat);
+      card.position.set(0, 1.3, 0.12);
+      g.add(card);
+      group.add(g);
+    }
+  }
 
   // ---- one InstancedMesh per character type ----
   const info = (type, name) => { const c = type.baked.clipInfo[name]; return [c.start, c.frames, c.dur]; };
