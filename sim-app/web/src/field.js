@@ -6,7 +6,7 @@ const IN = 0.0254;
 export const FIELD_L = 651.2;
 export const FIELD_W = 317.7;
 
-const ALLIANCE = { blue: 0x06308a, red: 0x6a0c18 };   // deep, saturated: reads as the real painted plates under the arena lights
+const ALLIANCE = { blue: 0x0a4fb8, red: 0xc0202d };   // deep, saturated: reads as the real painted plates under the arena lights
 
 // Blue-side placements (inches). Red side is the same rotated 180 deg about the field center.
 // `anchor` picks which bbox point of the raw model lands on (x,y): 'c' = center, 'wall' = min-X face on x.
@@ -189,7 +189,7 @@ function carpet() {
   c.width = c.height = 512;
   const g = c.getContext('2d');
   // dark charcoal pile flecked with black and grey (official carpet is a dark grey with visible speckle)
-  g.fillStyle = '#25282d';
+  g.fillStyle = '#34373c';
   g.fillRect(0, 0, 512, 512);
   for (let i = 0; i < 16000; i++) {
     const v = 14 + Math.random() * 20;            // near-black flecks
@@ -247,13 +247,13 @@ export async function buildField(base = './models/') {
 
   // Alliance zone tape (158.6 in deep) and center line
   const zone = 158.6;
-  root.add(strip(zone - 1, 0, 2, FIELD_W, 0x1454c9));
-  root.add(strip(FIELD_L - zone - 1, 0, 2, FIELD_W, 0xc9202f));
+  root.add(strip(zone - 1, 0, 2, FIELD_W, 0x1b62d8));
+  root.add(strip(FIELD_L - zone - 1, 0, 2, FIELD_W, 0xd8283a));
   root.add(strip(FIELD_L / 2 - 1, 0, 2, FIELD_W, 0xdfe6ee));
 
   // Alliance-colored floor bands near the walls
-  root.add(strip(0, 0, 12, FIELD_W, 0x0c3a8a));
-  root.add(strip(FIELD_L - 12, 0, 12, FIELD_W, 0x8a1824));
+  root.add(strip(0, 0, 12, FIELD_W, 0x0a4fb8));
+  root.add(strip(FIELD_L - 12, 0, 12, FIELD_W, 0xc0202d));
 
   // Perimeter: low polycarbonate guardrails on the long sides, diamond plate + glass at the alliance walls.
   const L = FIELD_L * IN, W = FIELD_W * IN;
