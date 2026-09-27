@@ -12,6 +12,10 @@ const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
 // World Z the two end-wall vomitories sit at (see inGap in buildBowl) - exported so venue.js can put an
 // actual entrance door in the outer wall exactly where each aisle leads to it.
 export const AISLE_END_Z = CZ + (cutZ + (-(W / 2 - R0) - cutZ) * 0.45);
+// Height of the open concourse behind the top row (must match buildBowl()'s own rows/rise defaults below):
+// the stands step UP from the field floor, so anything meeting them at the back - a door, a rail - has to
+// sit at this height, not at y=0. (This is exactly the bug in the entrance doors: they were built at y=0.)
+export const STAND_TOP_H = 6 * 0.4;
 
 // Parallel rounded-rectangle path around the field, sampled with the same parameter for every offset so
 // neighbouring tiers line up. Local coords: X along the field length, Z toward the scoring table (+Z = table side).

@@ -1,7 +1,7 @@
 // Venue props: broadcast cameras, FTA tent, LED ribbon board, exit gates, hanging pennant flags.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
-import { CX, CZ, AISLE_END_Z } from './stands.js';
+import { CX, CZ, AISLE_END_Z, STAND_TOP_H } from './stands.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 const dark = () => new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.4 });
@@ -146,20 +146,28 @@ export function buildProps() {
   const X0V = -12.45, X1V = L + 12.45, ZfarV = -W - 12.45;
   const entrance = new THREE.MeshBasicMaterial({ color: 0x3a8dff });
   const doorway = (x, z, ry) => {
+    // The stands step UP from the field floor; the aisle behind them (and its handrail) reaches the outer
+    // wall at the TOP of that climb, not at ground level - the door was floating at y=0 before, well above
+    // the actual concourse floor and disconnected from the steps leading up to it. h0 is that floor height.
+    const h0 = STAND_TOP_H;
     const door = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.2), gateMat);
-    door.position.set(x, 1.6, z);
+    door.position.set(x, h0 + 1.6, z);
     door.rotation.y = ry;
     // width on local X to match PlaneGeometry's own width axis, so rotating both by the same ry keeps
     // the lintel spanning the doorway instead of poking edge-on into the room (was swapped X/Z - the
     // beam only happened to look right on the two ry=90 doors and stuck out as a thin peg at ry=0)
     const top = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.2, 0.15), frame);
-    top.position.set(x, 3.3, z);
+    top.position.set(x, h0 + 3.3, z);
     top.rotation.y = ry;
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 0.32), entrance);
     const inset = 0.06;
-    sign.position.set(x + Math.sin(ry) * inset, 3.75, z + Math.cos(ry) * inset);
+    sign.position.set(x + Math.sin(ry) * inset, h0 + 3.75, z + Math.cos(ry) * inset);
     sign.rotation.y = ry;
-    g.add(door, top, sign);
+    // a short landing/threshold plate at the door so the floor doesn't just stop under it
+    const landing = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
+    landing.rotation.x = -Math.PI / 2;
+    landing.position.set(x + Math.sin(ry) * 0.5, h0 + 0.005, z + Math.cos(ry) * 0.5);
+    g.add(door, top, sign, landing);
   };
   doorway(CX, ZfarV + 0.02, 0);                       // audience-straight aisle -> far wall
   doorway(X0V + 0.02, CZ + AISLE_END_Z, Math.PI / 2);  // left-end aisle -> blue end wall
