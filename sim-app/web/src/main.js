@@ -28,7 +28,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+// Khronos PBR Neutral keeps saturated albedo (royal blue plates, yellow fuel) instead of ACES bleaching them toward white
+renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 0.8;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -50,7 +51,7 @@ controls.minDistance = 2;
 controls.maxDistance = 30;
 
 scene.add(new THREE.HemisphereLight(0xdbe8ff, 0x6a707c, 0.8));
-const sun = new THREE.DirectionalLight(0xfff3e0, 2.1);
+const sun = new THREE.DirectionalLight(0xfff3e0, 1.4);
 sun.position.set(center.x + 6, 14, center.z + 5);
 sun.target.position.copy(center);
 sun.castShadow = true;
