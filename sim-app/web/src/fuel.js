@@ -43,14 +43,14 @@ function fuelTexture() {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#f4c000';   // saturated warm yellow like the real foam ball (was a pale cream)
+  g.fillStyle = '#f6e100';   // bright lemon yellow: sampled from match footage (#F6EB01 lit, #CFBD06 in shade)
   g.fillRect(0, 0, 512, 256);
   // subtle molding seam on the equator + a slightly darker patch, like the real foam ball
   g.fillStyle = 'rgba(160,110,0,.35)';
   g.fillRect(0, 126, 512, 3);
   const grad = g.createRadialGradient(256, 128, 5, 256, 128, 120);
-  grad.addColorStop(0, 'rgba(255,200,30,.2)');
-  grad.addColorStop(1, 'rgba(255,200,30,0)');
+  grad.addColorStop(0, 'rgba(255,235,40,.15)');
+  grad.addColorStop(1, 'rgba(255,235,40,0)');
   g.fillStyle = grad;
   g.fillRect(0, 0, 512, 256);
   const t = new THREE.CanvasTexture(c);
@@ -74,7 +74,7 @@ export function buildFuel(events) {
   const extra = ROBOT.preload;                       // preloaded fuel starts inside the robot
   const total = pts.length + extra;
   const geo = new THREE.SphereGeometry(FUEL_R, 32, 20);
-  const mat = new THREE.MeshStandardMaterial({ map: fuelTexture(), roughness: 0.5, metalness: 0, emissive: 0x2a1600, emissiveIntensity: 0.25 });
+  const mat = new THREE.MeshStandardMaterial({ map: fuelTexture(), roughness: 0.5, metalness: 0, emissive: 0x3a3400, emissiveIntensity: 0.3 });
   const mesh = new THREE.InstancedMesh(geo, mat, total);
   mesh.castShadow = mesh.receiveShadow = true;
   mesh.frustumCulled = false;
