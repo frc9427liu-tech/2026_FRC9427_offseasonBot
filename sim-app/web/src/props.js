@@ -1,7 +1,8 @@
 // Venue props: broadcast cameras, FTA tent, LED ribbon board, exit gates, hanging pennant flags.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
-import { CX, CZ, AISLE_END_Z, STAND_TOP_H, DECK_END_Z } from './stands.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { STAND_TOP_H, ROOM, DOORS, DOOR_W, DOOR_H } from './stands.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 const dark = () => new THREE.MeshStandardMaterial({ color: 0x1b1f26, roughness: 0.5, metalness: 0.4 });
@@ -121,76 +122,93 @@ export function buildProps() {
   seg(-3.35, cz - W / 2 - 3.36, L + 3.35, cz - W / 2 - 3.36); // audience straight, just in front of the barrier
   g.add(ribbon);
 
-  // Exit gates on both end walls, near the referee side
-  const gateMat = new THREE.MeshStandardMaterial({ color: 0x0b0d11, roughness: 0.9 });
-  const frame = new THREE.MeshStandardMaterial({ color: 0xc4c9d0, roughness: 0.4, metalness: 0.8 });
-  const exit = new THREE.MeshBasicMaterial({ color: 0x25d366 });
-  for (const s of [-1, 1]) {
-    const x = s < 0 ? -12.45 : L + 12.45;   // just inside the venue end wall (venue.js X0/X1 = ∓12.5)
-    // z=15: arena floor, clear of the referee-side stand block (z 8.4-13.4). z=-12: up on the mezzanine,
-    // far enough along the end wall not to overlap that wall's entrance door (at AISLE_END_Z, about -4.3).
-    for (const z of [15, -12]) {
-      const h = z < DECK_END_Z ? STAND_TOP_H : 0;   // on the mezzanine the door starts at its floor, not y=0
-      const door = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 2.2), gateMat);
-      door.position.set(x, h + 1.1, z);
-      door.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;
-      const top = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 2.0), frame);
-      top.position.set(x, h + 2.28, z);
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.24), exit);
-      sign.position.set(x + (s < 0 ? 0.06 : -0.06), h + 2.6, z);
-      sign.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;
-      g.add(door, top, sign);
-    }
-  }
-
-  // Main entrance doors: one where each of the three stand aisles (stands.js) actually reaches the outer
-  // wall, so "walk in through the aisle" has a real door at the end of it, not just an open wall panel.
-  // Positions must track venue.js's current room bounds (X0/X1/Zfar = ∓12.5 / -W-12.5).
-  const X0V = -12.45, X1V = L + 12.45, ZfarV = -W - 12.45;
-  const entrance = new THREE.MeshBasicMaterial({ color: 0x3a8dff });
-  const alcoveMat = new THREE.MeshStandardMaterial({ color: 0x5a2a2e, roughness: 0.85 });   // recessed maroon frame, per the reference
-  const doorway = (x, z, ry) => {
-    // The stands step UP from the field floor; the aisle behind them (and its handrail) reaches the outer
-    // wall at the TOP of that climb, not at ground level - the door was floating at y=0 before, well above
-    // the actual concourse floor and disconnected from the steps leading up to it. h0 is that floor height.
-    const h0 = STAND_TOP_H;
-    // Real proportions: a double door is about 1.7m wide, 2.2m tall (roughly 1.3x a person's height) -
-    // the previous door (2.6 x 3.2) and its alcove (4.2 tall!) were nearly double that, reading as a
-    // structure a person couldn't plausibly walk through, half-swallowed by the truss above.
-    const dw = 1.7, dh = 2.2, recess = 0.35;
-    const fwd = [Math.sin(ry), Math.cos(ry)];   // the +Z-after-rotation direction (into the room), used throughout
-    // recessed passage: back panel + two side jambs, so it reads as an actual cut opening with depth, not
-    // a coloured decal stuck flat on the wall
-    const back = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.5, dh + 0.4, 0.1), alcoveMat);
-    back.position.set(x - fwd[0] * recess, h0 + (dh + 0.4) / 2, z - fwd[1] * recess);
-    back.rotation.y = ry;
-    g.add(back);
-    for (const side of [-1, 1]) {
-      const jamb = new THREE.Mesh(new THREE.BoxGeometry(recess, dh + 0.4, 0.1), alcoveMat);
-      const jx = x + Math.cos(ry) * side * (dw + 0.5) / 2, jz = z - Math.sin(ry) * side * (dw + 0.5) / 2;
-      jamb.position.set(jx - fwd[0] * recess / 2, h0 + (dh + 0.4) / 2, jz - fwd[1] * recess / 2);
-      jamb.rotation.y = ry;
-      g.add(jamb);
-    }
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), gateMat);
-    door.position.set(x, h0 + dh / 2, z);
-    door.rotation.y = ry;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.15, 0.15, 0.12), frame);
-    top.position.set(x, h0 + dh + 0.08, z);
-    top.rotation.y = ry;
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.24), entrance);
-    const inset = 0.06;
-    sign.position.set(x + fwd[0] * inset, h0 + dh + 0.4, z + fwd[1] * inset);
-    sign.rotation.y = ry;
-    // a short landing/threshold plate at the door so the floor doesn't just stop under it
-    const landing = new THREE.Mesh(new THREE.BoxGeometry(dw + 0.2, 0.01, 1.0), new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 }));
-    landing.rotation.y = ry;
-    landing.position.set(x + fwd[0] * 0.5, h0 + 0.005, z + fwd[1] * 0.5);
-    g.add(door, top, sign, landing);
+  // Doors: every opening in the outer walls (stands.js DOORS; venue.js cuts the matching hole in the wall).
+  // Each one is a real open doorway on the concourse level - steel frame, both leaves swung open, and a
+  // short passage behind it lit by a ceiling fitting - so it reads as a way through to the corridors behind
+  // the stands, not a black panel stuck on the wall.
+  const frame = new THREE.MeshStandardMaterial({ color: 0x3a3f47, roughness: 0.45, metalness: 0.7 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x23272e, roughness: 0.5, metalness: 0.5 });
+  const alcoveMat = new THREE.MeshStandardMaterial({ color: 0x5a2a2e, roughness: 0.85 });   // maroon portal, per the reference
+  const landingMat = new THREE.MeshStandardMaterial({ color: 0x6b727b, roughness: 0.8 });
+  const passageMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xfff1d8 });
+  const signTex = (text, bg) => {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 64;
+    const x = c.getContext('2d');
+    x.fillStyle = bg; x.fillRect(0, 0, 256, 64);
+    x.fillStyle = '#ffffff'; x.font = '700 38px "Segoe UI", sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, 128, 34);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   };
-  doorway(CX, ZfarV + 0.02, 0);                       // audience-straight aisle -> far wall
-  doorway(X0V + 0.02, CZ + AISLE_END_Z, Math.PI / 2);  // left-end aisle -> blue end wall
-  doorway(X1V - 0.02, CZ + AISLE_END_Z, -Math.PI / 2); // right-end aisle -> red end wall
+  const signMats = {
+    entrance: new THREE.MeshBasicMaterial({ map: signTex('ENTRANCE', '#1f5fd0') }),
+    exit: new THREE.MeshBasicMaterial({ map: signTex('EXIT', '#15a34a') }),
+  };
+  // The passage shell (floor, ceiling, side walls, back wall) as one vertex-coloured mesh with the lighting
+  // baked in: dim warm light spilling from a ceiling fitting ~1 m in, falling off toward the back.
+  const passageGeo = (() => {
+    const dw = DOOR_W, dh = DOOR_H, depth = 2.6, lampZ = -1.0;
+    const parts = [];
+    const plane = (w, h, sx, sy, m) => { const g = new THREE.PlaneGeometry(w, h, sx, sy); g.applyMatrix4(m); parts.push(g); };
+    const M = () => new THREE.Matrix4();
+    plane(dw, depth, 1, 8, M().makeRotationX(-Math.PI / 2).setPosition(0, 0.002, -depth / 2));        // floor
+    plane(dw, depth, 1, 8, M().makeRotationX(Math.PI / 2).setPosition(0, dh, -depth / 2));             // ceiling
+    plane(depth, dh, 8, 4, M().makeRotationY(Math.PI / 2).setPosition(-dw / 2, dh / 2, -depth / 2));   // left side
+    plane(depth, dh, 8, 4, M().makeRotationY(-Math.PI / 2).setPosition(dw / 2, dh / 2, -depth / 2));   // right side
+    plane(dw, dh, 1, 4, M().setPosition(0, dh / 2, -depth));                                          // back
+    const g = mergeGeometries(parts);
+    const p = g.attributes.position, col = [];
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i), z = p.getZ(i);
+      const t = -z / depth;
+      const pool = 0.22 * Math.exp(-((z - lampZ) ** 2) / 0.6) * (0.4 + 0.6 * (1 - Math.abs(y - dh) / dh));
+      const v = 0.07 * (1 - t) + 0.015 + pool;
+      col.push(v, v * 0.88, v * 0.72);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    return g;
+  })();
+  const doorway = (x, z, ry, kind) => {
+    const d = new THREE.Group();   // local: +Z into the room, X along the wall, y=0 at the concourse floor
+    const dw = DOOR_W, dh = DOOR_H;
+    d.add(new THREE.Mesh(passageGeo, passageMat));
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.14), lampMat);
+    lamp.position.set(0, dh - 0.02, -1.0);
+    d.add(lamp);
+    const add = (geo, mat, px, py, pz, rotY = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.rotation.y = rotY; m.castShadow = true; d.add(m); return m; };
+    // steel frame (head + jambs) proud of the wall
+    add(new THREE.BoxGeometry(dw + 0.2, 0.1, 0.08), frame, 0, dh + 0.05, 0.04);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.1, dh + 0.1, 0.08), frame, s * (dw / 2 + 0.05), (dh + 0.1) / 2, 0.04);
+    // both leaves standing open, swung ~80 degrees back into the passage
+    const th = 80 * Math.PI / 180;
+    for (const s of [-1, 1]) {
+      const hx = s * (dw / 2 - 0.03), hz = -0.06;
+      const leaf = add(new THREE.BoxGeometry(dw / 2 - 0.04, dh - 0.04, 0.04), leafMat,
+        hx - s * Math.cos(th) * (dw / 4 - 0.02), (dh - 0.04) / 2, hz - Math.sin(th) * (dw / 4 - 0.02), -s * th);
+      leaf.castShadow = false;
+    }
+    // entrances get the maroon portal surround from the reference; exits just the frame
+    if (kind === 'entrance') {
+      const bw = 0.28, pz = 0.015;
+      add(new THREE.BoxGeometry(dw + 0.2 + 2 * bw, bw, 0.03), alcoveMat, 0, dh + 0.1 + bw / 2, pz);
+      for (const s of [-1, 1]) add(new THREE.BoxGeometry(bw, dh + 0.1, 0.03), alcoveMat, s * (dw / 2 + 0.1 + bw / 2), (dh + 0.1) / 2, pz);
+    }
+    const sign = add(new THREE.PlaneGeometry(0.9, 0.225), signMats[kind], 0, dh + (kind === 'entrance' ? 0.62 : 0.3), 0.05);
+    sign.castShadow = false;
+    const landing = add(new THREE.BoxGeometry(dw + 0.2, 0.01, 1.0), landingMat, 0, 0.005, 0.5);
+    landing.castShadow = false;
+    d.position.set(x, STAND_TOP_H, z);
+    d.rotation.y = ry;
+    g.add(d);
+  };
+  for (const door of DOORS) {
+    if (door.wall === 'far') doorway(door.at, ROOM.Zfar, 0, door.kind);
+    else if (door.wall === 'near') doorway(door.at, ROOM.Znear, Math.PI, door.kind);
+    else if (door.wall === 'blue') doorway(ROOM.X0, door.at, Math.PI / 2, door.kind);
+    else doorway(ROOM.X1, door.at, -Math.PI / 2, door.kind);
+  }
 
   return {
     group: g,

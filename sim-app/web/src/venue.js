@@ -2,6 +2,7 @@
 // polished floor, alliance-colour accents. The field stays the focal point; the room is evenly lit, not dark.
 import * as THREE from 'three';
 import { FIELD_L, FIELD_W } from './field.js';
+import { DOORS, DOOR_W, DOOR_H, STAND_TOP_H } from './stands.js';
 
 const L = FIELD_L * 0.0254, W = FIELD_W * 0.0254;
 
@@ -131,26 +132,47 @@ export function buildVenue() {
 
   // Walls
   const wt = wallTexture();
-  const wallMat = (rx, ry) => { const t = wt.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
+  // shape-UV walls: ShapeGeometry UVs are in metres, so one texture tile = 4 m like the old w/4 repeat
+  const wallMat = () => { const t = wt.clone(); t.needsUpdate = true; t.repeat.set(0.25, 0.25); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
   const navy = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.6 });   // wood-tone accent band
-  const wall = (w, h, x, y, z, ry) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat(w / 4, h / 4));
+  // Each wall has a real opening cut for every door in it (stands.js DOORS), so the passage props.js builds
+  // behind the wall actually shows through. The wood band runs at the concourse level (the floor below it is
+  // all covered by the concourse now) and is broken at each door.
+  const bandH = 1.0;
+  const wall = (name, w, h, x, y, z, ry) => {
+    const holes = DOORS.filter((d) => d.wall === name).map((d) => {
+      const dx = (name === 'far' || name === 'near' ? d.at : x) - x, dz = (name === 'far' || name === 'near' ? z : d.at) - z;
+      return dx * Math.cos(ry) - dz * Math.sin(ry);   // along-wall offset in the wall's own local X
+    });
+    const shape = new THREE.Shape();
+    shape.moveTo(-w / 2, -h / 2); shape.lineTo(w / 2, -h / 2); shape.lineTo(w / 2, h / 2); shape.lineTo(-w / 2, h / 2); shape.closePath();
+    const y0 = STAND_TOP_H - h / 2;
+    for (const u of holes) {
+      const p = new THREE.Path();
+      p.moveTo(u - DOOR_W / 2, y0); p.lineTo(u - DOOR_W / 2, y0 + DOOR_H); p.lineTo(u + DOOR_W / 2, y0 + DOOR_H); p.lineTo(u + DOOR_W / 2, y0); p.closePath();
+      shape.holes.push(p);
+    }
+    const m = new THREE.Mesh(new THREE.ShapeGeometry(shape), wallMat());
     m.position.set(x, y, z);
     m.rotation.y = ry;
     m.receiveShadow = true;
     g.add(m);
-    const band = new THREE.Mesh(new THREE.PlaneGeometry(w, 2.4), navy);
-    band.position.set(x, 1.2, z);
-    band.rotation.y = ry;
-    const off = 0.01 * (ry === 0 ? 1 : ry > 0 ? -1 : 1);
-    band.position.z += ry === 0 ? off : 0;
-    band.position.x += ry === 0 ? 0 : (ry > 0 ? -off : off);
-    g.add(band);
+    // band segments between the door openings
+    const cuts = [-w / 2, ...holes.sort((a, b) => a - b).flatMap((u) => [u - DOOR_W / 2 - 0.4, u + DOOR_W / 2 + 0.4]), w / 2];
+    for (let i = 0; i < cuts.length; i += 2) {
+      const a = cuts[i], b = cuts[i + 1];
+      if (b - a < 0.05) continue;
+      const band = new THREE.Mesh(new THREE.PlaneGeometry(b - a, bandH), navy);
+      band.position.set((a + b) / 2, STAND_TOP_H + bandH / 2 - h / 2, 0.01);
+      band.position.applyEuler(new THREE.Euler(0, ry, 0)).add(new THREE.Vector3(x, y, z));
+      band.rotation.y = ry;
+      g.add(band);
+    }
   };
-  wall(X1 - X0, H, cx, H / 2, Zfar, 0);                    // far wall (faces +Z)
-  wall(X1 - X0, H, cx, H / 2, Znear, Math.PI);             // table-side wall (faces -Z)
-  wall(Znear - Zfar, H, X0, H / 2, (Znear + Zfar) / 2, Math.PI / 2);   // blue end wall
-  wall(Znear - Zfar, H, X1, H / 2, (Znear + Zfar) / 2, -Math.PI / 2);  // red end wall
+  wall('far', X1 - X0, H, cx, H / 2, Zfar, 0);                    // far wall (faces +Z)
+  wall('near', X1 - X0, H, cx, H / 2, Znear, Math.PI);            // table-side wall (faces -Z)
+  wall('blue', Znear - Zfar, H, X0, H / 2, (Znear + Zfar) / 2, Math.PI / 2);   // blue end wall
+  wall('red', Znear - Zfar, H, X1, H / 2, (Znear + Zfar) / 2, -Math.PI / 2);  // red end wall
 
   // Banners along the far wall and ends, alternating alliance colours
   const banner = (x, y, z, ry, color, text) => {
@@ -160,6 +182,7 @@ export function buildVenue() {
     g.add(m);
   };
   for (let i = 0; i < 9; i++) {
+    if (i === 4) continue;   // centre of the far wall is the main entrance door
     const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
     banner(x, 6.4, Zfar + 0.05, 0, i % 2 ? '#c8202f' : '#1f5fd0', 'REBUILT');
   }
@@ -170,7 +193,7 @@ export function buildVenue() {
   {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 - 6, 1.1),
       new THREE.MeshStandardMaterial({ color: 0x14274f, roughness: 0.7 }));
-    strip.position.set(cx, 3.6, Znear - 0.04);
+    strip.position.set(cx, 4.4, Znear - 0.04);   // above the concourse-level wood band (2.4-3.4 m)
     strip.rotation.y = Math.PI;
     g.add(strip);
   }
