@@ -6,7 +6,7 @@ const IN = 0.0254;
 export const FIELD_L = 651.2;
 export const FIELD_W = 317.7;
 
-const ALLIANCE = { blue: 0x06308a, red: 0x8c1220 };   // deep, saturated: reads as the real painted plates under the arena lights
+const ALLIANCE = { blue: 0x06308a, red: 0x6a0c18 };   // deep, saturated: reads as the real painted plates under the arena lights
 
 // Blue-side placements (inches). Red side is the same rotated 180 deg about the field center.
 // `anchor` picks which bbox point of the raw model lands on (x,y): 'c' = center, 'wall' = min-X face on x.
@@ -61,7 +61,8 @@ roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.to
 // The CAD ships default STEP colours; map them to real materials (see official field photos).
 function material(base, alliance, elName) {
   const paint = ALLIANCE[alliance];
-  const coat = { roughness: 0.6, metalness: 0.02, clearcoat: 0.15, clearcoatRoughness: 0.5 };
+  // painted plate: matte, no clearcoat (a clearcoat reflected the bright arena and washed the deep blue/red to pastel)
+  const coat = { roughness: 0.82, metalness: 0, clearcoat: 0, envMapIntensity: 0.15 };
   // the HUB's frame is bare aluminium (official photos); the alliance colour is only on the floor plates and bumps
   if (near(base, 0.82, 0.49, 0.21) && elName === 'hub') return enhance(new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.34, metalness: 0.9 }), { rough: 0.25, edge: 1.2 });
   if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25 });
@@ -129,7 +130,8 @@ function netTexture() {
   return t;
 }
 
-// Local frame: +x toward the neutral zone, -x toward the alliance wall, y up.
+// Local frame: +x toward the neutral zone, -x toward the alliance wall, y up. The net stands on the neutral-zone side
+// (official photos: viewed from the alliance side, the net rises behind the funnel), catching shots that overshoot.
 function hubDetails(alliance) {
   const g = new THREE.Group();
   const half = 23.9 * IN;
@@ -159,8 +161,8 @@ function hubDetails(alliance) {
   const alu = new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.3, metalness: 0.9 });
   const lean = 0.13, top = 3.35, y0 = 1.4, len = (top - y0) / Math.cos(lean);
   const frame = new THREE.Group();
-  frame.position.set(-0.6, y0, 0);
-  frame.rotation.z = lean;
+  frame.position.set(0.6, y0, 0);
+  frame.rotation.z = -lean;
   for (const z of [-0.58, 0.58]) {
     const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, len, 10), alu);
     post.position.set(0, len / 2, z);
