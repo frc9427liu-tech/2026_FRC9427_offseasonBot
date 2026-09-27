@@ -18,9 +18,6 @@ public class HopperSubsystems extends SubsystemBase {
     }
 
     public static HopperSubsystems create() {
-        if (!edu.wpi.first.wpilibj.RobotBase.isReal()) {
-            return new HopperSubsystems(new frc.robot.sim.SimIOs.ConveyorSim());
-        }
         return new HopperSubsystems(new ConveyorTalon());
     }
 
