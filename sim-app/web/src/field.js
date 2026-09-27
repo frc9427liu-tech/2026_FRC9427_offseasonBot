@@ -33,7 +33,7 @@ const near = (c, r, g, b) => Math.abs(c.r - r) < 0.03 && Math.abs(c.g - g) < 0.0
 
 // Cheap surface detail for CAD that ships as flat colour: world-space noise varies roughness, grime gathers
 // near the floor, and an edge term lifts silhouettes/creases so panels read as bevelled metal, not moulded plastic.
-function enhance(mat, { grime = 0.35, rough = 0.22, edge = 1.6 } = {}) {
+function enhance(mat, { grime = 0.35, rough = 0.22, edge = 1.6, bolts = false } = {}) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
@@ -51,11 +51,18 @@ float nz = fbm(vWPos * 6.0);
 float low = smoothstep(0.45, 0.0, vWPos.y);
 diffuseColor.rgb *= 1.0 - ${grime.toFixed(2)} * low * (0.4 + nz);
 float ed = length(fwidth(normalize(vNormal)));
-diffuseColor.rgb += ed * ${edge.toFixed(2)} * 0.35;`)
+diffuseColor.rgb += ed * ${edge.toFixed(2)} * 0.35;
+${bolts ? `
+// panel screws: a periodic 3D lattice of dark dots, masked to only show up near the same creases/silhouettes
+// the edge term already found (so it reads as a line of fasteners along a seam, not a grid on flat panel faces)
+vec3 boltCell = fract(vWPos / 0.12 + 0.5) - 0.5;
+float boltDot = smoothstep(0.16, 0.04, length(boltCell));
+float edgeMask = smoothstep(0.015, 0.12, ed);
+diffuseColor.rgb *= 1.0 - boltDot * edgeMask * 0.55;` : ''}`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
 roughnessFactor = clamp(roughnessFactor + (fbm(vWPos * 14.0) - 0.5) * ${rough.toFixed(2)} + low * 0.15, 0.05, 1.0);`);
   };
-  mat.customProgramCacheKey = () => `enh${grime}${rough}${edge}`;
+  mat.customProgramCacheKey = () => `enh${grime}${rough}${edge}${bolts}`;
   return mat;
 }
 // The CAD ships default STEP colours; map them to real materials (see official field photos).
@@ -65,9 +72,9 @@ function material(base, alliance, elName) {
   const coat = { roughness: 0.82, metalness: 0, clearcoat: 0, envMapIntensity: 0.15 };
   // the HUB's frame is bare aluminium (official photos); the alliance colour is only on the floor plates and bumps
   if (near(base, 0.82, 0.49, 0.21) && elName === 'hub') return enhance(new THREE.MeshStandardMaterial({ color: 0xc3c9d1, roughness: 0.34, metalness: 0.9 }), { rough: 0.25, edge: 1.2 });
-  if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25 });
+  if (near(base, 0.82, 0.49, 0.21)) return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25, bolts: elName === 'tower' });
   if (near(base, 0.83, 0.60, 0.39)) {
-    if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25 });
+    if (elName === 'bump') return enhance(new THREE.MeshPhysicalMaterial({ color: paint, ...coat }), { edge: 0.25, bolts: true });
     const c = elName === 'depot' ? 0x8b9198 : 0x14171c;
     return enhance(new THREE.MeshStandardMaterial({ color: c, roughness: 0.78, metalness: 0 }), { edge: 0.8 });
   }
