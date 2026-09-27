@@ -28,7 +28,6 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.config.PIDConstants;
 import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.math.geometry.Twist2d;
 
 /**
  * 底盤子系統 (DriveSubsystem)
@@ -55,10 +54,6 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
 
   /** Swerve 底盤姿態估測器 */
   private final SwerveDrivePoseEstimator poseEstimator;
-
-  // 模擬專用變數
-  private ChassisSpeeds m_simSpeeds = new ChassisSpeeds();
-  private Pose2d m_simOdometryPose = new Pose2d();
 
   // Elastic Field2d：讓 Dashboard 能顯示機器人在場地上的即時位置
   private final Field2d m_field = new Field2d();
@@ -161,10 +156,6 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
     // 避免模組速度超過最大設定值
     SwerveDriveKinematics.desaturateWheelSpeeds(moduleStates, SwerveConstants.kMaxSpeed);
 
-    if (RobotBase.isSimulation()) {
-      m_simSpeeds = chassisSpeeds;
-    }
-
     // 將計算出的狀態設置給各個模組
     frontLeft.setDesiredState(moduleStates[0]);
     frontRight.setDesiredState(moduleStates[1]);
@@ -187,17 +178,6 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
 
     // 每 20ms 同步機器人位置到 Field2d（Elastic 場地圖會即時更新）
     m_field.setRobotPose(getPose2d());
-  }
-
-  @Override
-  public void simulationPeriodic() {
-    // 簡易物理引擎：把目標速度積分成位移，讓虛擬機器人可以在畫面上跑
-    double dt = 0.02;
-    Twist2d twist = new Twist2d(
-        m_simSpeeds.vxMetersPerSecond * dt,
-        m_simSpeeds.vyMetersPerSecond * dt,
-        m_simSpeeds.omegaRadiansPerSecond * dt);
-    m_simOdometryPose = m_simOdometryPose.exp(twist);
   }
 
   /**
@@ -230,9 +210,6 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
    */
   public void resetPose(Pose2d pose) {
     System.out.println("[DriveSubsystem] 呼叫 resetPose，參數: " + pose);
-    if (RobotBase.isSimulation()) {
-      m_simOdometryPose = pose;
-    }
     poseEstimator.resetPosition(
         getRotation2d(),
         new SwerveModulePosition[] {
@@ -264,16 +241,8 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
    * @param speeds 相對於機器人的速度
    */
   public void driveRobotRelative(ChassisSpeeds speeds) {
-    if (RobotBase.isSimulation()
-        && (Math.abs(speeds.vxMetersPerSecond) > 0.01 || Math.abs(speeds.vyMetersPerSecond) > 0.01)) {
-      System.out.println("[DriveSubsystem] driveRobotRelative 接收速度: " + speeds);
-    }
     SwerveModuleState[] states = SwerveConstants.kDriveKinematics.toSwerveModuleStates(speeds);
     SwerveDriveKinematics.desaturateWheelSpeeds(states, SwerveConstants.kMaxSpeed);
-
-    if (RobotBase.isSimulation()) {
-      m_simSpeeds = speeds;
-    }
 
     frontLeft.setDesiredState(states[0]);
     frontRight.setDesiredState(states[1]);
@@ -416,10 +385,6 @@ public void setX() {
         states,
         SwerveConstants.kMaxSpeed);
 
-    if (RobotBase.isSimulation()) {
-      m_simSpeeds = speeds;
-    }
-
     frontLeft.setDesiredState(states[0]);
     frontRight.setDesiredState(states[1]);
     backLeft.setDesiredState(states[2]);
@@ -457,9 +422,5 @@ public void setX() {
     backLeft.setDesiredState(states[2]);
     backRight.setDesiredState(states[3]);
 
-    // Simulation
-    if (RobotBase.isSimulation()) {
-      m_simSpeeds = kinematics.toChassisSpeeds(states);
-    }
   }
 }
