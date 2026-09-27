@@ -100,10 +100,13 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   // cut in the wall. Two near the ends (close to the concourse by the scoring table) and one on the far side.
   const sB0 = W / 2;   // matches pathSamples' sB (=b) now that corners are sharp (R is always 0)
   const endGapZ = cutZ + (-sB0 - cutZ) * 0.45;   // local Z, same for both end walls
-  const inGap = (x, z, nx, nz) => {
+  // halfW widens for the top two rows: a real venue has a flat, seat-free concourse platform behind the
+  // top row before the wall/door, not seats hard up against the doorway - the door needs clear floor next
+  // to it, not just an aisle exactly its own width (that read as "opens straight into a chair back").
+  const inGap = (x, z, nx, nz, halfW = entranceW / 2) => {
     const lx = x - CX, lz = z - CZ;
-    if (Math.abs(nx) > 0.5) return Math.abs(lz - endGapZ) < entranceW / 2;        // end walls (nx = ±1)
-    if (nz < -0.5) return Math.abs(lx) < entranceW / 2;                          // audience-side straight (nz = -1)
+    if (Math.abs(nx) > 0.5) return Math.abs(lz - endGapZ) < halfW;        // end walls (nx = ±1)
+    if (nz < -0.5) return Math.abs(lx) < halfW;                          // audience-side straight (nz = -1)
     return false;
   };
 
@@ -137,6 +140,8 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
 
     // seats along the mid line of this tier; every 11th seat is an aisle step
     const mid = pathSamples(dIn + rowDepth * 0.62, nA, nB, nArc, R0, cutZ);
+    // the last two rows widen into a flat concourse platform (see inGap) instead of a plain aisle
+    const rowHalfW = r >= rows - 2 ? entranceW / 2 + (r - (rows - 2) + 1) * 1.8 : entranceW / 2;
     let dist = 0, next = 0.3, count = 0;
     for (let i = 1; i < mid.length; i++) {
       const p = mid[i - 1], q = mid[i];
@@ -148,7 +153,7 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
         const nl = Math.hypot(nx, nz); nx /= nl; nz /= nl;
         count++;
         next += 0.55;
-        if (inGap(x, z, nx, nz)) continue; // vomitory: bare deck here on every tier, no seat and no step
+        if (inGap(x, z, nx, nz, rowHalfW)) continue; // vomitory: bare deck here on every tier, no seat and no step
         if (count % 12 === 0) { // small cross-aisle: a step block instead of a chair
           const st = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.06, rowDepth * 0.95), stairMat);
           st.position.set(x, hTop + 0.03, z);
