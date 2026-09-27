@@ -174,7 +174,9 @@ export function buildVenue() {
   wall('blue', Znear - Zfar, H, X0, H / 2, (Znear + Zfar) / 2, Math.PI / 2);   // blue end wall
   wall('red', Znear - Zfar, H, X1, H / 2, (Znear + Zfar) / 2, -Math.PI / 2);  // red end wall
 
-  // Banners along the far wall and ends, alternating alliance colours
+  // Banners along the far wall and ends, alternating alliance colours. One hanging height everywhere:
+  // bottom edge at 5.0 m, clear of the concourse doors and the referee-side sponsor strip (3.85-4.95 m).
+  const BANNER_Y = 5.0 + 4.8 / 2;
   const banner = (x, y, z, ry, color, text) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 4.8), new THREE.MeshStandardMaterial({ map: bannerTexture(color, text), roughness: 0.7 }));
     m.position.set(x, y, z);
@@ -184,11 +186,11 @@ export function buildVenue() {
   for (let i = 0; i < 9; i++) {
     if (i === 4) continue;   // centre of the far wall is the main entrance door
     const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
-    banner(x, 6.4, Zfar + 0.05, 0, i % 2 ? '#c8202f' : '#1f5fd0', 'REBUILT');
+    banner(x, BANNER_Y, Zfar + 0.05, 0, i % 2 ? '#c8202f' : '#1f5fd0', 'REBUILT');
   }
   for (let i = 0; i < 9; i++) { // referee-side wall: same banners, plus a long sponsor strip
     const x = X0 + 4 + i * ((X1 - X0 - 8) / 8);
-    banner(x, 6.4, Znear - 0.05, Math.PI, i % 2 ? '#1f5fd0' : '#c8202f', 'FIRST ROBOTICS');
+    banner(x, BANNER_Y, Znear - 0.05, Math.PI, i % 2 ? '#1f5fd0' : '#c8202f', 'FIRST ROBOTICS');
   }
   {
     const strip = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 - 6, 1.1),
@@ -199,8 +201,8 @@ export function buildVenue() {
   }
   for (let j = 0; j < 4; j++) {
     const z = Zfar + 6 + j * 8;
-    banner(X0 + 0.05, 6.4, z, Math.PI / 2, '#1f5fd0', 'BLUE ALLIANCE');
-    banner(X1 - 0.05, 6.4, z, -Math.PI / 2, '#c8202f', 'RED ALLIANCE');
+    banner(X0 + 0.05, BANNER_Y, z, Math.PI / 2, '#1f5fd0', 'BLUE ALLIANCE');
+    banner(X1 - 0.05, BANNER_Y, z, -Math.PI / 2, '#c8202f', 'RED ALLIANCE');
   }
 
   // Ceiling: exposed steel bar-joist trusses under a corrugated roof deck, chain-hung can lights and a
