@@ -239,17 +239,6 @@ export function buildVenue() {
     sky.position.set(sx, H - 0.02, (Znear + Zfar) / 2);
     g.add(sky);
   }
-  const domeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.35, metalness: 0.5 });
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.9, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), domeMat);
-  dome.rotation.x = Math.PI; dome.position.set(cx, H - 3.6, (Znear + Zfar) / 2);
-  const domeGlow = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20), new THREE.MeshBasicMaterial({ color: 0xffe0ad }));
-  domeGlow.rotation.x = Math.PI / 2; domeGlow.position.set(cx, H - 4.05, (Znear + Zfar) / 2);
-  const domeRod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3.6, 6), domeMat);
-  domeRod.position.set(cx, H - 1.8, (Znear + Zfar) / 2);
-  g.add(dome, domeGlow, domeRod);
-  const domeLight = new THREE.PointLight(0xffdca0, 22, 12, 1.4);
-  domeLight.position.set(cx, H - 4.1, (Znear + Zfar) / 2);
-  g.add(domeLight);
 
   const steel = new THREE.MeshStandardMaterial({ color: 0x6d7580, roughness: 0.5, metalness: 0.8 });
   const nTruss = 8;
