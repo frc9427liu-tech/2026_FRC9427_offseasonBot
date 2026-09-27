@@ -22,8 +22,42 @@ export function buildPlaceholderRobot(alliance = 'blue') {
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.22, 3), new THREE.MeshBasicMaterial({ color: 0xffd24a }));
   nose.rotation.z = -Math.PI / 2; nose.position.set(size / 2 - 0.02, 0.5, 0);
   g.add(nose);
+
+  // Mechanism stand-ins driven by the robot code's logged values (replaced by the CAD parts later):
+  // intake slides out of the front, the hood tilts at the back, the flywheel spins under it.
+  const partMat = new THREE.MeshStandardMaterial({ color: 0xc9ccd2, roughness: 0.4, metalness: 0.7 });
+  const intake = new THREE.Group();
+  intake.position.set(size / 2 - 0.1, 0.16, 0);
+  const rollerBar = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.6, 20), new THREE.MeshStandardMaterial({ color: 0xff8a1f, roughness: 0.7 }));
+  rollerBar.rotation.x = Math.PI / 2; rollerBar.position.x = 0.06;
+  intake.add(rollerBar);
+  const hood = new THREE.Group();
+  hood.position.set(-0.12, 0.62, 0);
+  const hoodPlate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.025, 0.42), partMat);
+  hoodPlate.position.x = 0.17;
+  hood.add(hoodPlate);
+  const flywheel = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.36, 24), new THREE.MeshStandardMaterial({ color: 0x555b66, roughness: 0.35, metalness: 0.85 }));
+  flywheel.rotation.x = Math.PI / 2; flywheel.position.set(-0.12, 0.56, 0);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.362, 0.03), new THREE.MeshBasicMaterial({ color: 0xffd24a }));
+  stripe.position.x = 0.075;
+  flywheel.add(stripe);
+  g.add(intake, hood, flywheel);
+  g.userData.mech = { intake, hood, flywheel, intakeHome: intake.position.x };
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
+}
+
+// Robot-code outputs (units as the code logs them): intake extension in metres, hood in degrees, flywheel in rev/s.
+const NT = { intake: '/AdvantageKit/RealOutputs/intakearmangle', hood: '/AdvantageKit/RealOutputs/hoodangle', flywheel: '/AdvantageKit/RealOutputs/shootrps' };
+let lastAnim = performance.now();
+function animateMechanisms(mech, values) {
+  if (!mech) return;
+  const now = performance.now(), dt = Math.min((now - lastAnim) / 1000, 0.2);
+  lastAnim = now;
+  const num = (k) => (typeof values[k] === 'number' ? values[k] : 0);
+  mech.intake.position.x = mech.intakeHome + num(NT.intake);
+  mech.hood.rotation.z = THREE.MathUtils.degToRad(num(NT.hood));
+  mech.flywheel.rotation.y -= num(NT.flywheel) * 2 * Math.PI * dt * 0.1;  // slowed 10x: a real 60 rev/s wheel would just strobe
 }
 
 export function createRobotLink(scene) {
@@ -48,6 +82,7 @@ export function createRobotLink(scene) {
       const m = JSON.parse(e.data);
       if (m.t === 'state') {
         link.state = m; link.running = m.robot.running;
+        animateMechanisms(robot.userData.mech, m.values || {});
         if (m.pose) {
           // WPILib field coordinates (m, deg): +X toward red, +Y away from the scoring table (= -Z in the scene)
           robot.visible = true;
