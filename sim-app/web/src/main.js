@@ -145,7 +145,7 @@ VIEWS.hero();
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const ao = new GTAOPass(scene, camera, innerWidth, innerHeight);
-Object.assign(window.__dbg, { scene, ao, renderer });
+Object.assign(window.__dbg, { scene, ao, renderer, THREE });
 ao.output = GTAOPass.OUTPUT.Default;
 // radius up a bit (was missing the taller contact lines - stand risers, table legs) so more of the scene
 // actually gets the "grounded" contact-shadow look instead of floating free of its own shadow

@@ -4,6 +4,8 @@
 //
 // The robot-facing rules (intake, shooter, HUB scoring) live in fuelgame.js; this file only knows shapes and contacts.
 
+import { terrainAt } from './terrain.js';
+
 export const R = 5.91 * 0.0254 / 2;
 const G = 9.81;
 const E_FLOOR = 0.42, E_WALL = 0.5, E_BALL = 0.45, E_ROBOT = 0.3;
@@ -67,12 +69,24 @@ export class BallSim {
       v[o] *= air; v[o + 1] *= air; v[o + 2] *= air;
       p[o] += v[o] * dt; p[o + 1] += v[o + 1] * dt; p[o + 2] += v[o + 2] * dt;
 
-      // floor
-      if (p[o + 2] < R) {
-        p[o + 2] = R;
-        if (v[o + 2] < -0.25) v[o + 2] = -v[o + 2] * E_FLOOR; else v[o + 2] = 0;
-        const k = Math.exp(-ROLL_LOSS * dt);
-        v[o] *= k; v[o + 1] *= k;
+      // ground: the carpet, or a BUMP ramp (terrain.js). The surface under the ball is treated as a plane with
+      // the local slope, so a ball rests ON the ramp instead of sinking through it, bounces off it along its
+      // normal, and gravity's along-slope component rolls it back down.
+      {
+        const g = terrainAt(p[o], p[o + 1]);
+        const inv = 1 / Math.hypot(g.dzdx, g.dzdy, 1);
+        const nx = -g.dzdx * inv, ny = -g.dzdy * inv, nz = inv;
+        const dist = (p[o + 2] - g.z) * nz;   // perpendicular distance from the surface
+        if (dist < R) {
+          const push = R - dist;
+          p[o] += nx * push; p[o + 1] += ny * push; p[o + 2] += nz * push;
+          const vn = v[o] * nx + v[o + 1] * ny + v[o + 2] * nz;
+          const keep = vn < -0.25 ? -E_FLOOR : 0;   // hard hit bounces, a gentle one just stops pressing in
+          const k = Math.exp(-ROLL_LOSS * dt);        // rolling loss on the along-surface part
+          const tx = v[o] - vn * nx, ty = v[o + 1] - vn * ny, tz = v[o + 2] - vn * nz;
+          const vn2 = vn < 0 ? vn * keep : vn;
+          v[o] = tx * k + vn2 * nx; v[o + 1] = ty * k + vn2 * ny; v[o + 2] = tz * k + vn2 * nz;
+        }
       }
       // perimeter (tall polycarbonate/alliance walls)
       if (p[o] < R) { p[o] = R; if (v[o] < 0) v[o] = -v[o] * E_WALL; }
@@ -196,6 +210,12 @@ export class BallSim {
         }
       }
     }
-    for (let i = 0; i < n; i++) if (this.state[i] === 0 && p[i * 3 + 2] < R) p[i * 3 + 2] = R;
+    // ball-ball pushes can shove a ball into the ground: lift it back onto the surface
+    for (let i = 0; i < n; i++) {
+      if (this.state[i] !== 0) continue;
+      const o = i * 3, g = terrainAt(p[o], p[o + 1]);
+      const nz = 1 / Math.hypot(g.dzdx, g.dzdy, 1);
+      if ((p[o + 2] - g.z) * nz < R) p[o + 2] = g.z + R / nz;
+    }
   }
 }
