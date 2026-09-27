@@ -17,6 +17,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 const IN = 0.0254;
 window.__dbg = {}; // dev hooks for profiling
@@ -34,8 +35,9 @@ renderer.toneMappingExposure = 0.8;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xaeb6c2);
-scene.fog = new THREE.Fog(0xaeb6c2, 45, 110);
+// warm, not the cool blue-grey it was - matches the venue's own warmer palette instead of fighting it
+scene.background = new THREE.Color(0xc7bda5);
+scene.fog = new THREE.Fog(0xc7bda5, 45, 110);
 // Image-based lighting so metal and paint get believable reflections
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -136,6 +138,11 @@ Object.assign(window.__dbg, { scene, ao, renderer });
 ao.output = GTAOPass.OUTPUT.Default;
 ao.updateGtaoMaterial({ radius: 0.35, distanceExponent: 1.5, thickness: 1, scale: 1.1, samples: 12 });
 composer.addPass(ao);
+// Subtle warm glow around bright lights/screens - the reference look has this atmospheric quality that a
+// flat, unbloomed render (what every screenshot so far has been) can't reach no matter what colour the
+// materials are.
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.12, 0.4, 0.94);
+composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
 function resize() {
