@@ -176,11 +176,21 @@ export function buildVenue() {
   ceil.rotation.x = Math.PI / 2;
   ceil.position.set(cx, H, (Znear + Zfar) / 2);
   g.add(ceil);
-  // Two long clerestory skylight strips (a raised centre-roof monitor letting warm light wash down the
-  // trusses - the reference's angled, glowing ceiling look) plus one big dome pendant over mid-field,
-  // instead of only small even can-lights everywhere.
+  // Two long clerestory skylights, each a grid of glowing glass lights divided by white mullion bars (the
+  // reference's distinctive greenhouse-style angled roof glazing, not a plain glowing strip).
+  const mullionTex = (() => {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 512;
+    const g2 = c.getContext('2d');
+    g2.fillStyle = '#ffe9bf'; g2.fillRect(0, 0, 128, 512);
+    g2.strokeStyle = '#f2ede0'; g2.lineWidth = 10;
+    for (let x = 0; x <= 128; x += 64) { g2.beginPath(); g2.moveTo(x, 0); g2.lineTo(x, 512); g2.stroke(); }
+    for (let y = 0; y <= 512; y += 64) { g2.beginPath(); g2.moveTo(0, y); g2.lineTo(128, y); g2.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  })();
   for (const sx of [cx - (X1 - X0) * 0.22, cx + (X1 - X0) * 0.22]) {
-    const sky = new THREE.Mesh(new THREE.PlaneGeometry(3.2, Znear - Zfar - 4), new THREE.MeshStandardMaterial({ color: 0xffe9bf, emissive: 0xffcf7a, emissiveIntensity: 1.1, roughness: 0.6, side: THREE.DoubleSide }));
+    const len = Znear - Zfar - 4;
+    const tex = mullionTex.clone(); tex.needsUpdate = true; tex.repeat.set(1, len / 4);
+    const sky = new THREE.Mesh(new THREE.PlaneGeometry(3.2, len), new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffcf7a, emissiveIntensity: 1.0, emissiveMap: tex, roughness: 0.6, side: THREE.DoubleSide }));
     sky.rotation.x = Math.PI / 2;
     sky.position.set(sx, H - 0.02, (Znear + Zfar) / 2);
     g.add(sky);

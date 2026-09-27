@@ -145,11 +145,18 @@ export function buildProps() {
   // Positions must track venue.js's current room bounds (X0/X1/Zfar = ∓12.5 / -W-12.5).
   const X0V = -12.45, X1V = L + 12.45, ZfarV = -W - 12.45;
   const entrance = new THREE.MeshBasicMaterial({ color: 0x3a8dff });
+  const alcoveMat = new THREE.MeshStandardMaterial({ color: 0x5a2a2e, roughness: 0.85 });   // recessed maroon frame, per the reference
   const doorway = (x, z, ry) => {
     // The stands step UP from the field floor; the aisle behind them (and its handrail) reaches the outer
     // wall at the TOP of that climb, not at ground level - the door was floating at y=0 before, well above
     // the actual concourse floor and disconnected from the steps leading up to it. h0 is that floor height.
     const h0 = STAND_TOP_H;
+    // recessed alcove: a maroon-framed box set slightly INTO the wall behind the door, not a door bolted flat
+    // onto a flat cream panel
+    const alcove = new THREE.Mesh(new THREE.BoxGeometry(3.3, 4.2, 0.22), alcoveMat);
+    alcove.position.set(x - Math.sin(ry) * 0.1, h0 + 2.1, z - Math.cos(ry) * 0.1);
+    alcove.rotation.y = ry;
+    g.add(alcove);
     const door = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.2), gateMat);
     door.position.set(x, h0 + 1.6, z);
     door.rotation.y = ry;
