@@ -10,7 +10,8 @@ import { buildCrowd } from './crowd.js';
 import { buildOfficials } from './officials.js';
 import { buildProps } from './props.js';
 import { events, wireCrowd } from './events.js';
-import { createRobotLink, KEYMAP } from './robot.js';
+import { createRobotLink } from './robot.js';
+import { createTouchUI } from './touch.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -187,11 +188,14 @@ const uiApi = initUI({
     if (k === 'shadows') renderer.shadowMap.enabled = !!v;
     if (k === 'quality') ao.enabled = v === '高';
     if (k === 'quality') renderer.setPixelRatio(v === '低' ? 1 : v === '中' ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+    if (k === 'touch') touchUI.setMode(v);
     if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
   },
 });
 // control panel follows the robot's own source: re-read whenever the bridge re-analyses the project
-link.onControls = (info) => { setControlsInfo(info, KEYMAP); uiApi.refresh(); };
+const touchUI = createTouchUI(link);
+touchUI.apply();
+link.onControls = (info) => { setControlsInfo(info); touchUI.build(info); uiApi.refresh(); };
 if (link.controls) link.onControls(link.controls);
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.body.classList.contains('playing')) {

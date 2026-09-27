@@ -142,3 +142,20 @@ body.playing #shade, body.playing #lobby, body.playing #modes, body.playing #mod
 .ds-btn:hover { background: var(--first); }
 .ds-btn.on { background: #1f8a4c; border-color: #46d17f; }
 body:not(.playing) #dsbar { display: none; }
+/* ---- on-screen controls (generated from the robot code, see touch.js) ---- */
+#touchui { position: fixed; inset: 0; pointer-events: none; z-index: 20; display: none; touch-action: none; }
+body.playing #touchui:not([hidden]) { display: block; }
+#touchui .tstick { position: absolute; bottom: 28px; width: 150px; height: 150px; border-radius: 50%; pointer-events: auto; touch-action: none;
+  background: radial-gradient(circle, rgba(70,176,255,.16), rgba(12,24,50,.55)); border: 2px solid var(--line); }
+#touchui .tstick.left { left: 32px; }
+#touchui .tstick.right { right: 32px; bottom: 28px; }
+#touchui .tknob { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #eaf4ff, #4d8fe6); box-shadow: 0 0 14px rgba(120,190,255,.6); }
+#touchui .tbtns { position: absolute; right: 210px; bottom: 28px; max-width: 46vw; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 10px; pointer-events: none; }
+#touchui .tbtn { pointer-events: auto; touch-action: none; min-width: 64px; height: 64px; padding: 0 10px; border-radius: 32px; font: 600 13px/1 system-ui, sans-serif;
+  color: var(--text); background: var(--panel2); border: 2px solid var(--line); }
+#touchui .tbtn.down { background: var(--accent); color: #062; border-color: #bcd8ff; }
+.bindbtn { min-width: 44px; padding: 6px 12px; margin-left: 6px; border-radius: 8px; font-size: 14px; color: var(--text); background: var(--panel2); border: 1px solid var(--line); cursor: pointer; }
+.bindbtn:hover { border-color: var(--accent); }
+.bindbtn.wait { background: var(--accent); color: #041; }
+.bindbtn.reset { color: var(--muted); }

@@ -1,8 +1,9 @@
 // Lobby / mode select / modal UI. Pure DOM, no framework.
+import { bindings, setBinding, resetBindings, keyLabel, AXIS_CONTROLS } from './robot.js';
 const $ = (id) => document.getElementById(id);
 
 export const settings = {
-  quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中',
+  quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中', touch: '自動',
   cam: 'hero', hints: true, units: '英制',
 };
 
@@ -57,9 +58,9 @@ const MODALS = {
   ] },
   controls: { title: '操作', pages: [
     ['程式的操作', [val('狀態', '從機器人原始碼自動分析,程式一改就更新', '尚未連線橋接程式')]],
-    ['鍵盤', [val('移動', '', 'W A S D'), val('旋轉', '', 'Q / E'), val('自訂', '從機器人程式的按鍵綁定產生', '—')]],
+    ['鍵盤', [val('重新綁鍵', '在「程式的操作」頁點按鍵按鈕,再按新的鍵(Esc 取消)', '已存在瀏覽器')]],
     ['手把', [val('移動', '', '左搖桿'), val('旋轉', '', '右搖桿')]],
-    ['觸控', [val('移動', '', '左側虛擬搖桿'), val('旋轉', '', '右側虛擬搖桿')]],
+    ['觸控', [opt('螢幕操作', '版面依機器人程式用到的搖桿與按鈕自動產生', ['自動', '開', '關'], 'touch')]],
   ] },
   settings: { title: '設定', pages: [
     ['畫面', [opt('畫質', '影響效能', ['低', '中', '高'], 'quality'), opt('人群密度', '自動會依流暢度調整', ['自動', '低', '中', '高'], 'crowd'), sw('陰影', '', 'shadows'), sw('垂直同步', '', 'vsync')]],
@@ -95,8 +96,9 @@ export function setControlsInfo(info, keymap = {}) {
       if (it.role) return esc(ROLE_CN[it.role] || it.role);
       return `讀取於 ${esc(it.in || it.at)}`;
     });
-    return { k: `${CN[k] || k}`, hint: parts.join('<br>'), type: 'val', v: keymap[k] || '—', raw: true };
+    return { k: `${CN[k] || k}`, hint: parts.join('<br>'), type: 'bind', control: k };
   });
+  rows.push({ k: '恢復預設按鍵', hint: '', type: 'bind', control: '', reset: true });
   const ctrl = (info.controllers || []).map((c) => `${c.type} #${c.port}`).join(', ');
   page[1] = [val('控制器', `共掃描 ${info.filesScanned} 個原始檔`, ctrl || '未找到'), ...rows];
 }
@@ -134,12 +136,32 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
       let right = '';
       if (r.type === 'opts') right = `<div class="opts">${r.options.map((o) => `<button class="opt${settings[r.key] === o ? ' on' : ''}" data-r="${ri}" data-o="${o}"><span class="dot"></span>${o}</button>`).join('')}</div>`;
       else if (r.type === 'switch') right = `<button class="switch${settings[r.key] ? ' on' : ''}" data-r="${ri}" data-sw="1"></button>`;
-      else right = `<span class="val">${r.v}</span>`;
+      else if (r.type === 'bind') {
+        if (r.reset) right = '<button class="bindbtn reset" data-reset="1">重設</button>';
+        else {
+          const codes = bindings[r.control] || [];
+          const slots = AXIS_CONTROLS.includes(r.control) ? [['−', 0], ['+', 1]] : [['', 0]];
+          right = `<span>${slots.map(([tag, s]) => `${tag ? `<small>${tag}</small>` : ''}<button class="bindbtn" data-bind="${r.control}" data-slot="${s}">${esc(keyLabel(codes[s]))}</button>`).join('')}</span>`;
+        }
+      } else right = `<span class="val">${r.v}</span>`;
       return `<div class="drow"><span class="k">${r.k}${hint}</span>${right}</div>`;
     }).join('');
   };
   $('mlist').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) { mpage = +b.dataset.p; renderModal(); } };
   $('mcontent').onclick = (e) => {
+    const kb = e.target.closest('[data-bind]');
+    if (kb) { // rebind: the next key pressed becomes this control's key (Esc cancels)
+      kb.textContent = '按下按鍵…'; kb.classList.add('wait');
+      const h = (ev) => {
+        ev.preventDefault(); ev.stopImmediatePropagation();
+        removeEventListener('keydown', h, true);
+        if (ev.code !== 'Escape') setBinding(kb.dataset.bind, +kb.dataset.slot, ev.code);
+        renderModal();
+      };
+      addEventListener('keydown', h, true);
+      return;
+    }
+    if (e.target.closest('[data-reset]')) { resetBindings(); renderModal(); return; }
     const b = e.target.closest('[data-r]'); if (!b) return;
     const r = MODALS[mkey].pages[mpage][1][+b.dataset.r];
     if (b.dataset.sw) settings[r.key] = !settings[r.key];

@@ -4,11 +4,40 @@ import * as THREE from 'three';
 
 const BRIDGE_URL = `ws://${location.hostname || 'localhost'}:8765`;
 
-// Default keyboard layout for the virtual Xbox pad (what each physical control is bound to on the keyboard)
-export const KEYMAP = {
-  LeftX: 'A / D', LeftY: 'W / S', RightX: '← / →', RightY: '↑ / ↓', LT: 'Q', RT: 'E',
-  A: 'Space', B: 'B', X: 'X', Y: 'Y', LB: 'Shift', RB: 'R', Start: 'Enter', Back: '—',
+// Keyboard layout for the virtual Xbox pad: which key(s) drive each physical control. Axes take a [negative, positive]
+// key pair, everything else one key. The user can rebind any of them; the choice is remembered in the browser.
+export const DEFAULT_BINDINGS = {
+  LeftX: ['KeyA', 'KeyD'], LeftY: ['KeyW', 'KeyS'], RightX: ['ArrowLeft', 'ArrowRight'], RightY: ['ArrowUp', 'ArrowDown'],
+  LT: ['KeyQ'], RT: ['KeyE'],
+  A: ['Space'], B: ['KeyB'], X: ['KeyX'], Y: ['KeyY'], LB: ['ShiftLeft'], RB: ['KeyR'], Start: ['Enter'], Back: [],
+  DPadUp: ['KeyI'], DPadDown: ['KeyK'], DPadLeft: ['KeyJ'], DPadRight: ['KeyL'],
 };
+export const AXIS_CONTROLS = ['LeftX', 'LeftY', 'RightX', 'RightY'];
+const STORE = 'sim.keybindings';
+export const bindings = (() => {
+  const b = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
+  try { Object.assign(b, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { /* no storage: defaults */ }
+  return b;
+})();
+const saveBindings = () => { try { localStorage.setItem(STORE, JSON.stringify(bindings)); } catch { /* ignore */ } };
+export function setBinding(control, slot, code) {
+  // a key can only drive one thing: unbind it elsewhere first
+  for (const arr of Object.values(bindings)) arr.forEach((c, i) => { if (c === code) arr[i] = ''; });
+  const arr = bindings[control] || (bindings[control] = []);
+  arr[slot] = code;
+  saveBindings();
+}
+export function resetBindings() {
+  for (const k of Object.keys(bindings)) delete bindings[k];
+  Object.assign(bindings, JSON.parse(JSON.stringify(DEFAULT_BINDINGS)));
+  saveBindings();
+}
+export function keyLabel(code) {
+  if (!code) return '—';
+  const m = /^(?:Key|Digit)(.)$/.exec(code);
+  if (m) return m[1];
+  return ({ Space: 'Space', Enter: 'Enter', ShiftLeft: 'Shift', ShiftRight: 'R-Shift', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', ControlLeft: 'Ctrl', AltLeft: 'Alt', Tab: 'Tab', Backspace: '⌫' })[code] || code;
+}
 
 export function buildPlaceholderRobot(alliance = 'blue') {
   // Stand-in until the team's own CAD model is loaded: frame, bumpers in alliance colour, and a direction marker.
@@ -107,14 +136,26 @@ export function createRobotLink(scene) {
   addEventListener('keydown', (e) => { if (!e.repeat) keys.add(e.code); });
   addEventListener('keyup', (e) => keys.delete(e.code));
   const pad = link.pad;
+  // on-screen (touch) controls write here; merged with the keyboard so both work at once
+  link.touch = { axes: [0, 0, 0, 0, 0, 0], buttons: new Array(12).fill(false), povs: -1, active: false };
   const kbdPad = () => {
-    const ax = (neg, pos) => (keys.has(pos) ? 1 : 0) - (keys.has(neg) ? 1 : 0);
-    pad.axes = [ax('KeyA', 'KeyD'), ax('KeyW', 'KeyS'), keys.has('KeyQ') ? 1 : 0, keys.has('KeyE') ? 1 : 0, ax('ArrowLeft', 'ArrowRight'), ax('ArrowUp', 'ArrowDown')];
-    // WPILib Xbox: index 0 A,1 B,2 X,3 Y,4 LB,5 RB,6 Back,7 Start,8 LS,9 RS
+    const held = (c) => (c && keys.has(c) ? 1 : 0);
+    const ax = (name) => held(bindings[name][1]) - held(bindings[name][0]);
+    // WPILib Xbox axes: 0 LeftX, 1 LeftY, 2 LT, 3 RT, 4 RightX, 5 RightY
+    pad.axes = [ax('LeftX'), ax('LeftY'), held(bindings.LT[0]), held(bindings.RT[0]), ax('RightX'), ax('RightY')];
+    // WPILib Xbox buttons: 0 A,1 B,2 X,3 Y,4 LB,5 RB,6 Back,7 Start,8 LS,9 RS
     const b = new Array(12).fill(false);
-    b[0] = keys.has('Space'); b[1] = keys.has('KeyB'); b[2] = keys.has('KeyX'); b[3] = keys.has('KeyY');
-    b[4] = keys.has('ShiftLeft'); b[5] = keys.has('KeyR'); b[7] = keys.has('Enter');
+    ['A', 'B', 'X', 'Y', 'LB', 'RB', 'Back', 'Start'].forEach((n, i) => { b[i] = !!held(bindings[n][0]); });
     pad.buttons = b;
+    const dp = ['DPadUp', 'DPadRight', 'DPadDown', 'DPadLeft'].findIndex((n) => held(bindings[n][0]));
+    pad.povs = [dp < 0 ? -1 : dp * 90];
+  };
+  const mergeTouch = () => {
+    const t = link.touch;
+    if (!t.active) return;
+    pad.axes = pad.axes.map((v, i) => (Math.abs(t.axes[i]) > Math.abs(v) ? t.axes[i] : v));
+    pad.buttons = pad.buttons.map((v, i) => v || t.buttons[i]);
+    if (t.povs >= 0) pad.povs = [t.povs];
   };
   const gamepadPad = () => {
     const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find((g) => g && g.connected);
@@ -130,6 +171,7 @@ export function createRobotLink(scene) {
   setInterval(() => {
     if (!link.connected) return;
     if (!gamepadPad()) kbdPad();
+    mergeTouch();
     const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v);
     send({ t: 'joy', index: 0, axes: pad.axes.map(dz), buttons: pad.buttons, povs: pad.povs });
   }, 20);
