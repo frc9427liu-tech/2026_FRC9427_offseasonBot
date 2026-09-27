@@ -291,5 +291,38 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
     group.add(g2);
   }
 
+  // Handrails along both edges of each vomitory aisle, stepping down from the back wall to the front
+  // barrier so the walkway the tiers already line up on reads as somewhere a person actually climbs.
+  const railMat = new THREE.MeshStandardMaterial({ color: 0xbfc4cb, roughness: 0.35, metalness: 0.85 });
+  const railH = 0.92;
+  const bar = (p0, p1, radius) => {
+    const dx = p1.x - p0.x, dy = p1.y - p0.y, dz = p1.z - p0.z;
+    const len = Math.hypot(dx, dy, dz);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, len, 8), railMat);
+    m.position.set((p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize());
+    group.add(m);
+  };
+  // boundaries from the front barrier (k=0, floor height 0) to the back wall (k=rows, tier top height)
+  const boundaryOffsets = [margin, ...Array.from({ length: rows }, (_, r) => margin + (r + 1) * rowDepth)];
+  const boundaryHeights = [0, ...Array.from({ length: rows }, (_, r) => rise * (r + 1))];
+  // edge(k): the two rail lines (left/right of the aisle) at boundary k, in world coords
+  const buildRail = (edge) => {
+    const left = boundaryOffsets.map((off, k) => ({ ...edge(off, -1), y: boundaryHeights[k] }));
+    const right = boundaryOffsets.map((off, k) => ({ ...edge(off, 1), y: boundaryHeights[k] }));
+    for (const line of [left, right]) {
+      for (let k = 0; k < line.length; k++) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, railH, 8), railMat);
+        post.position.set(line[k].x, line[k].y + railH / 2, line[k].z);
+        group.add(post);
+        if (k > 0) bar({ ...line[k - 1], y: line[k - 1].y + railH }, { ...line[k], y: line[k].y + railH }, 0.022);
+      }
+    }
+  };
+  const halfW = entranceW / 2 + 0.1;
+  buildRail((off, side) => ({ x: CX - (L / 2 + off), z: CZ + endGapZ + side * halfW }));   // left-end aisle
+  buildRail((off, side) => ({ x: CX + (L / 2 + off), z: CZ + endGapZ + side * halfW }));   // right-end aisle
+  buildRail((off, side) => ({ x: CX + side * halfW, z: CZ - (W / 2 + off) }));             // audience-side aisle
+
   return { group, seats, backOffset: backOff };
 }
