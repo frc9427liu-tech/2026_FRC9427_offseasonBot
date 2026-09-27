@@ -249,13 +249,14 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   // walking around or up the open back, nothing boxes them in). Only a low guard rail at the top edge,
   // like the safety rail on a real bleacher's last row.
   const guardMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.6, metalness: 0.3 });
-  group.add(ribbonH(backPts, rise * rows + 0.85, rise * rows + 0.9, guardMat, 1)); // top rail bar only
+  // cutGaps: true - this rail ran straight across all three entrances before, blocking them
+  group.add(ribbonH(backPts, rise * rows + 0.85, rise * rows + 0.9, guardMat, 1, true)); // top rail bar only
   {
     let dist = 0;
     for (let i = 1; i < backPts.length; i++) {
       const p = backPts[i - 1], q = backPts[i];
       const seg = Math.hypot(q.x - p.x, q.z - p.z);
-      if (Math.floor(dist / 1.1) !== Math.floor((dist + seg) / 1.1)) {
+      if (Math.floor(dist / 1.1) !== Math.floor((dist + seg) / 1.1) && !inGap(q.x, q.z, q.nx, q.nz)) {
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), guardMat);
         post.position.set(q.x, rise * rows + 0.45, q.z);
         group.add(post);
