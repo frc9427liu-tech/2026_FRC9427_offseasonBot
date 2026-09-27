@@ -174,16 +174,16 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
 
   @Override
   public void periodic() {
-    if (!RobotBase.isSimulation()) {
-      poseEstimator.update(
-          getRotation2d(),
-          new SwerveModulePosition[] {
-              frontLeft.getPosition(),
-              frontRight.getPosition(),
-              backLeft.getPosition(),
-              backRight.getPosition()
-          });
-    }
+    // [實驗版] 模擬時也更新 poseEstimator：FRC 9427 模擬器會模擬真的陀螺儀、輪子編碼器和 Limelight，
+    // 所以模擬跟實車走同一條定位程式（原本模擬時跳過，改用 m_simOdometryPose 積分速度指令）。
+    poseEstimator.update(
+        getRotation2d(),
+        new SwerveModulePosition[] {
+            frontLeft.getPosition(),
+            frontRight.getPosition(),
+            backLeft.getPosition(),
+            backRight.getPosition()
+        });
 
     // 每 20ms 同步機器人位置到 Field2d（Elastic 場地圖會即時更新）
     m_field.setRobotPose(getPose2d());
@@ -219,9 +219,7 @@ public class CommandSwerveDrivetrain extends SubsystemBase {
    * @return 機器人的姿態
    */
   public Pose2d getPose2d() {
-    if (RobotBase.isSimulation()) {
-      return m_simOdometryPose;
-    }
+    // [實驗版] 模擬時也用 poseEstimator（原本回傳 m_simOdometryPose，從 (0,0) 積分速度指令、不吃陀螺儀和視覺）
     return poseEstimator.getEstimatedPosition();
   }
 
