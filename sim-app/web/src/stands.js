@@ -50,28 +50,6 @@ function ribbon(inner, outer, hTop, hBottom, mat) {
   return m;
 }
 
-// Concrete/precast panel look for the tall back wall: without it, a flat navy slab this size reads as a
-// sheer fake cliff rather than the poured/tiled retaining wall a real bowl sits against.
-function backWallTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  g.fillStyle = '#232a3a';
-  g.fillRect(0, 0, 256, 256);
-  g.strokeStyle = 'rgba(10,16,28,.6)';
-  g.lineWidth = 2;
-  for (let y = 0; y <= 256; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke(); }
-  for (let x = 0; x <= 256; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }
-  for (let i = 0; i < 900; i++) {
-    const v = Math.random() < 0.5 ? 'rgba(0,0,0,.08)' : 'rgba(255,255,255,.05)';
-    g.fillStyle = v;
-    g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-
 function chairGeometry() {
   const parts = [];
   const box = (w, h, d, x, y, z) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); parts.push(g); };
@@ -258,37 +236,25 @@ export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 }
   group.add(ribbonH(frontIn, 0.55, 0.66, bandMat));
   const backOff = margin + rows * rowDepth + 0.1;
   const backH = rise * rows + 2.2;
-  const backTex = backWallTexture();
-  backTex.repeat.set(1, 1);
-  const backWallMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.85 });
   const backPts = pathSamples(backOff, nA, nB, nArc, R0, cutZ);
-  group.add(ribbonH(backPts, 0, backH, backWallMat, 0.35, true));
-  // a lighter coping strip at the top gives the wall a defined edge instead of just stopping
-  group.add(ribbonH(backPts, backH - 0.14, backH + 0.02, new THREE.MeshStandardMaterial({ color: 0x9aa1ab, roughness: 0.6 }), 1, true));
-
-  // Entrance jambs + a lit sign at the back wall, placed from the same local targets inGap() tests against
-  // (so they land exactly on the aisle every tier already lines up on) rather than searching the path for them.
-  const bA = L / 2 + backOff, bB = W / 2 + backOff;
-  const entrancePlacements = [
-    { x: CX - bA, z: CZ + endGapZ, ry: Math.atan2(-1, 0) },   // left end wall (nx = -1)
-    { x: CX + bA, z: CZ + endGapZ, ry: Math.atan2(1, 0) },    // right end wall (nx = +1)
-    { x: CX, z: CZ - bB, ry: Math.atan2(0, -1) },             // far audience wall (nz = -1)
-  ];
-  const jambMat = new THREE.MeshStandardMaterial({ color: 0x1c2029, roughness: 0.5, metalness: 0.4 });
-  const signMat = new THREE.MeshBasicMaterial({ color: 0x2fd66b });
-  for (const p of entrancePlacements) {
-    const g2 = new THREE.Group();
-    g2.position.set(p.x, 0, p.z);
-    g2.rotation.y = p.ry;
-    for (const side of [-1, 1]) {
-      const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.14, backH, 0.3), jambMat);
-      jamb.position.set(side * (entranceW / 2 + 0.07), backH / 2, 0);
-      g2.add(jamb);
+  // No back wall: this is a convention-hall floor, not a ballpark - the concourse is open air behind the
+  // top row (real telescoping bleachers - see reference photos - are free-standing, entrances are just
+  // walking around or up the open back, nothing boxes them in). Only a low guard rail at the top edge,
+  // like the safety rail on a real bleacher's last row.
+  const guardMat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.6, metalness: 0.3 });
+  group.add(ribbonH(backPts, rise * rows + 0.85, rise * rows + 0.9, guardMat, 1)); // top rail bar only
+  {
+    let dist = 0;
+    for (let i = 1; i < backPts.length; i++) {
+      const p = backPts[i - 1], q = backPts[i];
+      const seg = Math.hypot(q.x - p.x, q.z - p.z);
+      if (Math.floor(dist / 1.1) !== Math.floor((dist + seg) / 1.1)) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), guardMat);
+        post.position.set(q.x, rise * rows + 0.45, q.z);
+        group.add(post);
+      }
+      dist += seg;
     }
-    const sign = new THREE.Mesh(new THREE.PlaneGeometry(entranceW - 0.2, 0.32), signMat);
-    sign.position.set(0, 2.35, 0.16);
-    g2.add(sign);
-    group.add(g2);
   }
 
   // Handrails along both edges of each vomitory aisle, stepping down from the back wall to the front
