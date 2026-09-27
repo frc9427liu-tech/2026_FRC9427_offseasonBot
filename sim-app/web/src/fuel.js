@@ -40,19 +40,30 @@ export function startingLayout() {
 }
 
 function fuelTexture() {
+  // Reference: a real ball, photographed under room light and white-balance corrected against its own
+  // background, is a flat matte lemon yellow with a fine pebbled (orange-peel) foam surface and a small
+  // printed "FIRST" logo — no shiny highlight band and no visible molding seam.
   const c = document.createElement('canvas');
   c.width = 512; c.height = 256;
   const g = c.getContext('2d');
-  g.fillStyle = '#f6e100';   // bright lemon yellow: sampled from match footage (#F6EB01 lit, #CFBD06 in shade)
+  g.fillStyle = '#f6e100';
   g.fillRect(0, 0, 512, 256);
-  // subtle molding seam on the equator + a slightly darker patch, like the real foam ball
-  g.fillStyle = 'rgba(160,110,0,.35)';
-  g.fillRect(0, 126, 512, 3);
-  const grad = g.createRadialGradient(256, 128, 5, 256, 128, 120);
-  grad.addColorStop(0, 'rgba(255,235,40,.15)');
-  grad.addColorStop(1, 'rgba(255,235,40,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 512, 256);
+  // fine pebble grain: tiny randomized specks, slightly lighter and darker than the base
+  for (let i = 0; i < 3200; i++) {
+    const x = Math.random() * 512, y = Math.random() * 256, r = 0.6 + Math.random() * 0.8;
+    const d = Math.random() < 0.5 ? -1 : 1;
+    g.fillStyle = `rgba(${d < 0 ? '150,105,0' : '255,255,200'},${0.05 + Math.random() * 0.07})`;
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  // printed logo, small and off-centre like the real ball
+  g.save();
+  g.translate(150, 130);
+  g.fillStyle = 'rgba(30,24,0,.82)';
+  g.font = '700 26px "Segoe UI", sans-serif';
+  g.textAlign = 'left';
+  g.fillText('FIRST', 8, 9);
+  g.beginPath(); g.arc(-16, 0, 11, 0, Math.PI * 2); g.fill();
+  g.restore();
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -74,7 +85,8 @@ export function buildFuel(events) {
   const extra = ROBOT.preload;                       // preloaded fuel starts inside the robot
   const total = pts.length + extra;
   const geo = new THREE.SphereGeometry(FUEL_R, 32, 20);
-  const mat = new THREE.MeshStandardMaterial({ map: fuelTexture(), roughness: 0.5, metalness: 0, emissive: 0x3a3400, emissiveIntensity: 0.3 });
+  // matte foam, not shiny plastic: higher roughness, tiny emissive so it never reads black in shadow
+  const mat = new THREE.MeshStandardMaterial({ map: fuelTexture(), roughness: 0.85, metalness: 0, emissive: 0x2a2400, emissiveIntensity: 0.15 });
   const mesh = new THREE.InstancedMesh(geo, mat, total);
   mesh.castShadow = mesh.receiveShadow = true;
   mesh.frustumCulled = false;
