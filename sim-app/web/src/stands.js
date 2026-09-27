@@ -7,6 +7,11 @@ const L = FIELD_L * 0.0254;
 const W = FIELD_W * 0.0254;
 export const CX = L / 2;
 export const CZ = -W / 2;
+const R0 = 2.4;
+const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
+// World Z the two end-wall vomitories sit at (see inGap in buildBowl) - exported so venue.js can put an
+// actual entrance door in the outer wall exactly where each aisle leads to it.
+export const AISLE_END_Z = CZ + (cutZ + (-(W / 2 - R0) - cutZ) * 0.45);
 
 // Parallel rounded-rectangle path around the field, sampled with the same parameter for every offset so
 // neighbouring tiers line up. Local coords: X along the field length, Z toward the scoring table (+Z = table side).
@@ -81,8 +86,6 @@ function chairGeometry() {
 export function buildBowl({ rows = 6, rowDepth = 1.0, rise = 0.4, margin = 3.4 } = {}) {
   const group = new THREE.Group();
   const seats = [];
-  const R0 = 2.4;
-  const cutZ = W / 2 - 1.2; // where the end stands stop before the referee side
   const nA = 60, nB = 14, nArc = 10;
   const entranceW = 1.9;
 
