@@ -47,10 +47,13 @@ export function buildPlaceholderRobot(alliance = 'blue') {
   frame.position.y = h / 2 + 0.05;
   const bumperMat = new THREE.MeshStandardMaterial({ color: alliance === 'blue' ? 0x1f5fd0 : 0xd7263d, roughness: 0.85 });
   const bumper = (w, d, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.13, d), bumperMat); m.position.set(x, 0.14, z); return m; };
-  g.add(frame, bumper(size, 0.09, 0, size / 2 - 0.045), bumper(size, 0.09, 0, -size / 2 + 0.045), bumper(0.09, size, size / 2 - 0.045, 0), bumper(0.09, size, -size / 2 + 0.045, 0));
+  const body = new THREE.Group();   // frame + bumpers + nose: scaled to the described footprint (fitModelToDesc)
+  body.add(frame, bumper(size, 0.09, 0, size / 2 - 0.045), bumper(size, 0.09, 0, -size / 2 + 0.045), bumper(0.09, size, size / 2 - 0.045, 0), bumper(0.09, size, -size / 2 + 0.045, 0));
+  g.add(body);
+  g.userData.body = body;
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.22, 3), new THREE.MeshBasicMaterial({ color: 0xffd24a }));
   nose.rotation.z = -Math.PI / 2; nose.position.set(size / 2 - 0.02, 0.5, 0);
-  g.add(nose);
+  body.add(nose);
 
   // Mechanism stand-ins driven by the robot code's logged values (replaced by the CAD parts later):
   // intake slides out of the front, the hood tilts at the back, the flywheel spins under it.
@@ -90,6 +93,22 @@ export function readSignal(src, st) {
     return r ? Math.abs(r.vel) : null;
   }
   return null;
+}
+
+// Fit the stand-in model to the robot description (ROBOT > 機構描述): bumper footprint and height, the intake
+// mouth's width, the launcher where the fuel actually leaves - so what you see matches what the fuel rules use.
+function fitModelToDesc(robot, desc) {
+  const mech = robot.userData.mech;
+  if (!mech || !desc) return;
+  const base = 0.84;   // buildPlaceholderRobot's footprint
+  const sx = desc.size.length / base, sz = desc.size.width / base;
+  robot.userData.body.scale.set(sx, desc.size.height / 0.55, sz);
+  mech.intakeHome = desc.size.length / 2 - 0.1;
+  mech.intake.position.set(mech.intakeHome, 0.16, 0);
+  mech.intake.children[0].scale.y = desc.intake.width / 0.6;   // roller bar length (cylinder axis = local Y)
+  const S = desc.shooter;
+  mech.flywheel.position.set(S.x - 0.06, S.z + 0.07, -S.y);
+  mech.hood.position.set(S.x - 0.06, S.z + 0.13, -S.y);
 }
 
 // Stand-in mechanisms follow the same signals the game-piece rules use: intake extension (m, x scale), hood
@@ -146,7 +165,7 @@ export function createRobotLink(scene) {
       else if (m.t === 'hello') { link.log = m.log || []; }
       else if (m.t === 'project') { link.project = { project: m.project, recent: m.recent || [], busy: false, error: null }; if (link.onProject) link.onProject(link.project); }
       else if (m.t === 'projectResult') { link.project = { ...(link.project || {}), busy: false, error: m.ok || m.cancelled ? null : m.error }; if (link.onProject) link.onProject(link.project); }
-      else if (m.t === 'robotDesc') { link.desc = m.desc; link.descMotors = m.motors || []; if (link.onDesc) link.onDesc(m.desc); }
+      else if (m.t === 'robotDesc') { link.desc = m.desc; link.descMotors = m.motors || []; fitModelToDesc(robot, m.desc); if (link.onDesc) link.onDesc(m.desc); }
     };
   }
   connect();
@@ -159,7 +178,7 @@ export function createRobotLink(scene) {
   const projectBusy = () => { link.project = { ...(link.project || {}), busy: true, error: null }; if (link.onProject) link.onProject(link.project); };
   link.pickProject = () => { projectBusy(); send({ t: 'pickProject' }); };
   link.useProject = (dir) => { projectBusy(); send({ t: 'setProject', project: dir }); };
-  link.saveDesc = (desc) => { link.desc = desc; send({ t: 'saveRobotDesc', desc }); };
+  link.saveDesc = (desc) => { link.desc = desc; fitModelToDesc(robot, desc); send({ t: 'saveRobotDesc', desc }); };
   link.setDs = (patch) => { Object.assign(link.ds, patch); send({ t: 'ds', enabled: link.ds.enabled, autonomous: link.ds.autonomous }); };
 
   // ---- inputs: keyboard -> virtual Xbox pad; a real gamepad overrides it while connected ----

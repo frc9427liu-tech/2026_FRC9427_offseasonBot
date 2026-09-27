@@ -156,6 +156,9 @@ export function stopRobot() {
 }
 
 // ---------- HALSim WebSocket client ----------
+// messages per second from each HALSim device (diagnostics: how fresh the motor outputs are)
+const halCounts = {}; let halRates = {};
+setInterval(() => { halRates = Object.fromEntries(Object.entries(halCounts).map(([k, n]) => [k, n / 2])); for (const k of Object.keys(halCounts)) halCounts[k] = 0; }, 2000);
 let hal = null;
 function connectHal() {
   const ws = new WebSocket(HALSIM_URL);
@@ -165,6 +168,7 @@ function connectHal() {
     try {
       const m = JSON.parse(e.data);
       const key = `${m.type}:${m.device || ''}`;
+      halCounts[key] = (halCounts[key] || 0) + 1;
       const d = (state.hal.devices[key] ||= {});
       Object.assign(d, m.data);
     } catch { /* ignore */ }
@@ -270,14 +274,27 @@ setInterval(() => { pushDs(); for (const i of Object.keys(joys)) pushJoy(i); }, 
 const motorSim = new MotorSim();
 const chassis = new SwerveChassis();
 let lastMotorT = performance.now();
-setInterval(() => {
+function motorTick() {
   const now = performance.now();
   const dt = Math.min((now - lastMotorT) / 1000, 0.1);
   lastMotorT = now;
   if (!hal || hal.readyState !== 1) return;
   for (const msg of motorSim.step(dt, state.hal.devices)) hal.send(JSON.stringify(msg));
   for (const msg of chassis.step(dt, state.hal.devices, motorSim.snapshot())) hal.send(JSON.stringify(msg));
-}, 10);
+}
+// Sensor feedback rate matters: the motor controllers close their loops on the rotor position we send, so a
+// stale position is loop delay. Windows timers only tick every ~15.6 ms (setInterval/Atomics.wait alike), which
+// made stiff position loops (a hood at kP 160) oscillate. While the robot program runs, step every
+// MOTOR_PERIOD_MS using setImmediate (still yields to network I/O every pass); otherwise idle on a timer.
+const MOTOR_PERIOD_MS = Number(process.env.SIM_MOTOR_PERIOD_MS || 4);
+let nextMotor = performance.now();
+function motorLoop() {
+  const now = performance.now();
+  if (now >= nextMotor) { motorTick(); nextMotor = Math.max(nextMotor + MOTOR_PERIOD_MS, now - 20); }
+  if (robotProc && hal && hal.readyState === 1) setImmediate(motorLoop);
+  else setTimeout(() => { nextMotor = performance.now(); motorLoop(); }, 10);
+}
+motorLoop();
 
 // ---------- summary to the UI ----------
 function summary() {
@@ -306,7 +323,7 @@ function summary() {
       : Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
     // BUMP ramp height/tilt, degrees/metres, field-frame (only meaningful alongside the simulated pose above)
     terrain: chassis.cfg ? { z: chassis.pose.z || 0, pitch: ((chassis.pitch || 0) * 180) / Math.PI, roll: ((chassis.roll || 0) * 180) / Math.PI } : null,
-    chassisDebug: chassis.debug,
+    chassisDebug: chassis.debug, halRates,
     robotPose: Array.isArray(field) && field.length >= 3 ? field.slice(0, 3) : null,
     ds, motors, values: numeric, rotors: motorSim.snapshot(),
     gyro: Object.fromEntries(Object.entries(state.hal.devices).filter(([k]) => k.startsWith('CANGyro:')).map(([k, v]) => [k.slice(8), v['<yaw'] ?? 0])),

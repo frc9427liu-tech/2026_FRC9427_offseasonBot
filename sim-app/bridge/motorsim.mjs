@@ -55,12 +55,15 @@ export class MotorSim {
       const { R, Kt, Ke } = m.p;
       const { inertia, friction, minRot, maxRot } = m.load;
       const sign = ROTOR_SENSOR_SIGN;
-      // rotor rad/s. A few sub-steps keep the stiff electrical term stable at low inertia.
+      // rotor rad/s. The back-EMF term is integrated implicitly: a light mechanism (a geared hood is ~1e-4 kg m^2
+      // at the rotor) has an electrical time constant of ~2 ms, shorter than a sub-step, where plain Euler blows up.
       const n = 4, h = dt / n;
+      const damp = (Kt * Ke) / R;   // N m per rad/s
       for (let i = 0; i < n; i++) {
-        const torque = Kt * (volts - Ke * m.vel) / R;
+        const drive = (Kt * volts) / R;
+        const torque = drive - damp * m.vel;
         const fr = Math.abs(m.vel) < 1e-3 && Math.abs(torque) < friction ? -torque : -Math.sign(m.vel) * friction;
-        m.vel += ((torque + fr) / inertia) * h;
+        m.vel = (m.vel + ((drive + fr) / inertia) * h) / (1 + (damp / inertia) * h);
         m.pos += (m.vel / (2 * Math.PI)) * h;
         if (m.pos < minRot) { m.pos = minRot; if (m.vel < 0) m.vel = 0; }
         if (m.pos > maxRot) { m.pos = maxRot; if (m.vel > 0) m.vel = 0; }

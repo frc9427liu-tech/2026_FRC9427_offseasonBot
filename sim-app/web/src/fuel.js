@@ -81,7 +81,7 @@ function fuelTexture() {
 // Fallback robot description (same shape as bridge/mechanisms.mjs DEFAULT_ROBOT_DESC) until the bridge sends the
 // project's own one; the per-robot values (which signal is the intake, the shooter feed, ...) come from there.
 // The shot model fitted to this robot's shooting tables (ShooterCalculator hood/rps/time-of-flight):
-// elevation = elevationBase - hood angle, ball speed = efficiency * wheel surface speed.
+// elevation = elevationBase - hoodScale x hood angle, ball speed = efficiency x wheel surface speed.
 const FALLBACK_DESC = {
   size: { length: 0.86, width: 0.86, height: 0.55 }, capacity: 40, preload: 8,
   intake: { source: '', min: 0.05, width: 0.64, reach: 0.15, scale: 1 },
@@ -164,7 +164,7 @@ export function buildFuel(events) {
         const i = sim.firstWithState(1);
         if (i < 0) break;
         const speed = S.efficiency * 2 * Math.PI * S.wheelRadiusIn * IN * (sig(S.speed) || 0) * (1 + (Math.random() - 0.5) * 0.03);
-        const elev = ((S.elevationBase - (sig(S.hood) || 0)) * Math.PI) / 180;
+        const elev = ((S.elevationBase - (S.hoodScale ?? 1) * (sig(S.hood) || 0)) * Math.PI) / 180;
         const yaw = th + ((Math.random() - 0.5) * 2 * S.spreadDeg * Math.PI) / 180;
         const hv = speed * Math.cos(elev);
         sim.launch(i, [x + S.x * c - S.y * s, y + S.x * s + S.y * c, S.z], [hv * Math.cos(yaw) + rv.vx, hv * Math.sin(yaw) + rv.vy, speed * Math.sin(elev)]);

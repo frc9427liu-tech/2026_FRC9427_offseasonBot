@@ -42,7 +42,7 @@ const EN = {
   伸出倍率: 'Extension scale', '訊號每 1 單位多伸出幾 m': 'metres of extension per unit of signal',
   發射: 'Shooter', 送球訊號: 'Feed signal', '超過門檻時一顆顆送進飛輪（建議選把球推進飛輪的馬達）': 'Fuel is fed one by one above the threshold (pick the motor that pushes fuel into the flywheel)',
   '馬達為 rev/s': 'rev/s for a motor', 飛輪轉速: 'Flywheel speed', 'Hood 角度': 'Hood angle', 度: 'deg',
-  仰角基準: 'Elevation base', '出射仰角 = 基準 − hood 角度（度）': 'launch elevation = base − hood angle (deg)',
+  仰角基準: 'Elevation base', '出射仰角 = 基準 − 倍率 × hood 角度（度）': 'launch elevation = base − scale × hood angle (deg)', 'Hood 倍率': 'Hood scale', 'hood 每轉 1 度，出射仰角變幾度': 'degrees of launch elevation per degree of hood',
   飛輪半徑: 'Flywheel radius', 球速效率: 'Speed efficiency', '球速 = 效率 × 輪緣速度': 'fuel speed = efficiency × wheel surface speed',
   射速: 'Fire rate', '顆/秒': 'balls/s', 左右散布: 'Spread', '發射點 前後': 'Launch point X', '發射點 左右': 'Launch point Y', '發射點 高度': 'Launch point height',
   'm，車身中心往前為正': 'm, forward from robot centre is +', 'm，往左為正': 'm, left is +',
