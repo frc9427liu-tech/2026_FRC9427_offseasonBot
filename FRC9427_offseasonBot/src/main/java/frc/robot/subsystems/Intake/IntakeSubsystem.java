@@ -29,9 +29,6 @@ public class IntakeSubsystem extends SubsystemBase {
     }
 
     public static IntakeSubsystem create() {
-        if (!edu.wpi.first.wpilibj.RobotBase.isReal()) {
-            return new IntakeSubsystem(new frc.robot.sim.SimIOs.ArmSim(), new frc.robot.sim.SimIOs.RollerSim());
-        }
         return new IntakeSubsystem(
                 new ArmHardware(),
                 new RollerIOHardware());

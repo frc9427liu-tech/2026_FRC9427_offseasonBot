@@ -30,12 +30,6 @@ public class Shootersubsystem extends SubsystemBase {
     }
 
     public static Shootersubsystem create() {
-        if (!edu.wpi.first.wpilibj.RobotBase.isReal()) {
-            return new Shootersubsystem(
-                    new frc.robot.sim.SimIOs.TriggerSim(),
-                    new frc.robot.sim.SimIOs.HoodSim(),
-                    new frc.robot.sim.SimIOs.FlywheelSim());
-        }
         return new Shootersubsystem(
                 new TiggerTalon(),
                 new HoodHardware(),
