@@ -1,10 +1,11 @@
 // Lobby / mode select / modal UI. Pure DOM, no framework.
 import { bindings, setBinding, resetBindings, keyLabel, AXIS_CONTROLS } from './robot.js';
+import { t, tf, LANGS, getLang, setLang } from './i18n.js';
 const $ = (id) => document.getElementById(id);
 
 export const settings = {
   quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中', touch: '自動',
-  cam: 'hero', hints: true, units: '英制',
+  cam: 'hero', hints: true, units: '英制', lang: getLang(),
 };
 
 const DOCK = [
@@ -64,7 +65,7 @@ const MODALS = {
   ] },
   settings: { title: '設定', pages: [
     ['畫面', [opt('畫質', '影響效能', ['低', '中', '高'], 'quality'), opt('人群密度', '自動會依流暢度調整', ['自動', '低', '中', '高'], 'crowd'), sw('陰影', '', 'shadows'), sw('垂直同步', '', 'vsync')]],
-    ['介面', [sw('提示文字', '顯示操作提示', 'hints'), opt('單位', '', ['英制', '公制'], 'units')]],
+    ['介面', [opt('語言', 'Language', LANGS, 'lang'), sw('提示文字', '顯示操作提示', 'hints'), opt('單位', '', ['英制', '公制'], 'units')]],
     ['音效', [opt('音量', '', ['靜音', '低', '中', '高'], 'volume')]],
     ['網路', [val('伺服器', '線上功能開放後設定', '未設定')]],
   ] },
@@ -81,10 +82,12 @@ const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt
 const BIND_CN = { onTrue: '按下時', whileTrue: '按住時', onFalse: '放開時', whileFalse: '未按時', toggleOnTrue: '按一下切換' };
 
 // Rebuild the "controls read from the code" page from the bridge's source analysis.
+let lastControls = null;   // kept so a language change can rebuild the page
 export function setControlsInfo(info, keymap = {}) {
+  lastControls = info;
   const page = MODALS.controls.pages[0];
   if (!info || !info.ok) {
-    page[1] = [val('狀態', '', info && info.error ? info.error : '尚未分析')];
+    page[1] = [val('狀態', '', info && info.error ? info.error : t('尚未分析'))];
     return;
   }
   const keys = Object.keys(info.controls);
@@ -92,15 +95,15 @@ export function setControlsInfo(info, keymap = {}) {
   const rows = sorted.map((k) => {
     const items = info.controls[k];
     const parts = items.map((it) => {
-      if (it.kind === 'binding') return `${BIND_CN[it.how] || it.how}:${esc(it.action.replace(/^this\./, ''))}`;
-      if (it.role) return esc(ROLE_CN[it.role] || it.role);
-      return `讀取於 ${esc(it.in || it.at)}`;
+      if (it.kind === 'binding') return `${t(BIND_CN[it.how]) || it.how}: ${esc(it.action.replace(/^this\./, ''))}`;
+      if (it.role) return esc(t(ROLE_CN[it.role]) || it.role);
+      return tf.readIn(esc(it.in || it.at));
     });
     return { k: `${CN[k] || k}`, hint: parts.join('<br>'), type: 'bind', control: k };
   });
   rows.push({ k: '恢復預設按鍵', hint: '', type: 'bind', control: '', reset: true });
   const ctrl = (info.controllers || []).map((c) => `${c.type} #${c.port}`).join(', ');
-  page[1] = [val('控制器', `共掃描 ${info.filesScanned} 個原始檔`, ctrl || '未找到'), ...rows];
+  page[1] = [val('控制器', tf.scanned(info.filesScanned), ctrl || t('未找到')), ...rows];
 }
 
 // ---- ROBOT > 機構描述: the robot description the game-piece rules use (bridge/mechanisms.mjs), editable ----
@@ -143,8 +146,8 @@ const DESC_ROWS = [
 const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => (a[k] ||= {}), o)[last] = v; };
 const srcLabel = (s) => {
-  if (!s) return '（未設定）';
-  if (s.startsWith('motor:')) { const m = descCtx.motors.find((x) => x.name === s.slice(6)); return `馬達 ${m ? m.label : s.slice(6)}`; }
+  if (!s) return t('（未設定）');
+  if (s.startsWith('motor:')) { const m = descCtx.motors.find((x) => x.name === s.slice(6)); return tf.motor(m ? m.label : s.slice(6)); }
   return `NT ${s.slice(3).split('/').pop()}`;
 };
 function liveText(src) {
@@ -153,7 +156,7 @@ function liveText(src) {
   let v = null;
   if (src.startsWith('nt:')) { v = (st.values || {})[src.slice(3)]; if (typeof v === 'boolean') v = v ? 1 : 0; }
   else if (src.startsWith('motor:')) { const r = (st.rotors || {})[src.slice(6)]; v = r ? Math.abs(r.vel) : null; }
-  return typeof v === 'number' ? `目前 ${v.toFixed(2)}` : '目前沒有數值';
+  return typeof v === 'number' ? tf.current(v.toFixed(2)) : t('目前沒有數值');
 }
 function sourceOptions(cur) {
   const st = descCtx.getState() || {};
@@ -176,18 +179,23 @@ export function setRobotDesc(desc, { getState, save, motors } = {}) {
 
 export function initUI({ onStart, onPreview, onSettingChange }) {
   // dock + cards
-  $('dock').innerHTML = DOCK.map((d) => `<button class="dock-item" data-open="${d.id}"><span class="g">${d.g}</span>${d.label}</button>`).join('');
-  $('cards').innerHTML = CARDS.map((c) => `<button class="ecard"><span class="glyph">${c.g}</span><span>${c.t}<small>${c.s}</small></span></button>`).join('');
+  const renderLobby = () => {
+  $('dock').innerHTML = DOCK.map((d) => `<button class="dock-item" data-open="${d.id}"><span class="g">${d.g}</span>${t(d.label)}</button>`).join('');
+  $('cards').innerHTML = CARDS.map((c) => `<button class="ecard"><span class="glyph">${c.g}</span><span>${t(c.t)}<small>${t(c.s)}</small></span></button>`).join('');
+  document.querySelector('#modes h2').textContent = t('模式選擇');
+  document.querySelectorAll('[data-open="settings"][title]').forEach((b) => { b.title = t('設定'); });
+  };
+  renderLobby();
 
   // mode select
   let group = 0, mode = 0;
   const renderModes = () => {
-    $('rail').innerHTML = MODE_GROUPS.map((g, i) => `<button class="rail-item${i === group ? ' active' : ''}" data-g="${i}"><span class="g">${g.g}</span>${g.label}</button>`).join('');
+    $('rail').innerHTML = MODE_GROUPS.map((g, i) => `<button class="rail-item${i === group ? ' active' : ''}" data-g="${i}"><span class="g">${g.g}</span>${t(g.label)}</button>`).join('');
     $('modelist').innerHTML = MODE_GROUPS[group].modes.map((m, i) =>
-      `<button class="mcard${i === mode ? ' active' : ''}${m.on ? '' : ' locked'}" data-m="${i}"><b>${m.name}</b><small>${m.sub}</small></button>`).join('');
+      `<button class="mcard${i === mode ? ' active' : ''}${m.on ? '' : ' locked'}" data-m="${i}"><b>${t(m.name)}</b><small>${t(m.sub)}</small></button>`).join('');
     $('prevtag').textContent = '2026 REBUILT · 651.2 × 317.7 in';
     const cur = MODE_GROUPS[group].modes[mode];
-    $('modelabel').textContent = cur.name;
+    $('modelabel').textContent = t(cur.name);
     $('startsub').textContent = cur.on ? 'READY' : 'SOON';
   };
   $('rail').onclick = (e) => { const b = e.target.closest('[data-g]'); if (b) { group = +b.dataset.g; mode = 0; renderModes(); } };
@@ -200,27 +208,27 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
   let mkey = 'settings', mpage = 0;
   const renderModal = () => {
     const m = MODALS[mkey];
-    $('mtitle').textContent = m.title;
-    $('mlist').innerHTML = m.pages.map((p, i) => `<button class="ditem${i === mpage ? ' active' : ''}" data-p="${i}">${p[0]}</button>`).join('');
+    $('mtitle').textContent = t(m.title);
+    $('mlist').innerHTML = m.pages.map((p, i) => `<button class="ditem${i === mpage ? ' active' : ''}" data-p="${i}">${t(p[0])}</button>`).join('');
     $('mcontent').innerHTML = m.pages[mpage][1].map((r, ri) => {
-      const hint = r.hint ? `<span class="hint">${r.hint}</span>` : '';
+      const hint = r.hint ? `<span class="hint">${t(r.hint)}</span>` : '';
       let right = '';
-      if (r.type === 'opts') right = `<div class="opts">${r.options.map((o) => `<button class="opt${settings[r.key] === o ? ' on' : ''}" data-r="${ri}" data-o="${o}"><span class="dot"></span>${o}</button>`).join('')}</div>`;
+      if (r.type === 'opts') right = `<div class="opts">${r.options.map((o) => `<button class="opt${settings[r.key] === o ? ' on' : ''}" data-r="${ri}" data-o="${o}"><span class="dot"></span>${t(o)}</button>`).join('')}</div>`;
       else if (r.type === 'switch') right = `<button class="switch${settings[r.key] ? ' on' : ''}" data-r="${ri}" data-sw="1"></button>`;
       else if (r.type === 'bind') {
-        if (r.reset) right = '<button class="bindbtn reset" data-reset="1">重設</button>';
+        if (r.reset) right = `<button class="bindbtn reset" data-reset="1">${t('重設')}</button>`;
         else {
           const codes = bindings[r.control] || [];
           const slots = AXIS_CONTROLS.includes(r.control) ? [['−', 0], ['+', 1]] : [['', 0]];
           right = `<span>${slots.map(([tag, s]) => `${tag ? `<small>${tag}</small>` : ''}<button class="bindbtn" data-bind="${r.control}" data-slot="${s}">${esc(keyLabel(codes[s]))}</button>`).join('')}</span>`;
         }
-      } else if (r.type === 'head') return `<div class="dhead">${r.k}</div>`;
+      } else if (r.type === 'head') return `<div class="dhead">${t(r.k)}</div>`;
       else if (r.type === 'num') right = `<input class="numin" type="number" step="${r.step}" data-path="${r.path}" value="${getPath(descCtx.desc, r.path) ?? ''}">`;
       else if (r.type === 'src') {
         const cur = getPath(descCtx.desc, r.path) || '';
         right = `<span class="srcwrap"><select class="srcsel" data-path="${r.path}">${sourceOptions(cur)}</select><small data-live="${r.path}">${liveText(cur)}</small></span>`;
-      } else right = `<span class="val">${r.v}</span>`;
-      return `<div class="drow"><span class="k">${r.k}${hint}</span>${right}</div>`;
+      } else right = `<span class="val">${t(r.v)}</span>`;
+      return `<div class="drow"><span class="k">${t(r.k)}${hint}</span>${right}</div>`;
     }).join('');
   };
   // description edits: save on every change (bridge writes the project's JSON and echoes it back)
@@ -244,7 +252,7 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
   $('mcontent').onclick = (e) => {
     const kb = e.target.closest('[data-bind]');
     if (kb) { // rebind: the next key pressed becomes this control's key (Esc cancels)
-      kb.textContent = '按下按鍵…'; kb.classList.add('wait');
+      kb.textContent = t('按下按鍵…'); kb.classList.add('wait');
       const h = (ev) => {
         ev.preventDefault(); ev.stopImmediatePropagation();
         removeEventListener('keydown', h, true);
@@ -259,6 +267,11 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
     const r = MODALS[mkey].pages[mpage][1][+b.dataset.r];
     if (b.dataset.sw) settings[r.key] = !settings[r.key];
     else settings[r.key] = b.dataset.o;
+    if (r.key === 'lang') { // everything visible re-renders in the new language
+      setLang(settings.lang);
+      renderLobby(); renderModes();
+      if (lastControls) setControlsInfo(lastControls);
+    }
     onSettingChange(r.key, settings[r.key]);
     renderModal();
   };
