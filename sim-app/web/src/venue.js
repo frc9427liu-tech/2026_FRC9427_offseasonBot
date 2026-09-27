@@ -53,15 +53,38 @@ function bannerTexture(color, text) {
 }
 
 function wallTexture() {
+  // Warm cream, not cool grey: the user's own reference mockup for the venue (outside the field, which
+  // stays untouched) is a warmer, more finished convention-hall palette - cream wall panels with a wood-tone
+  // band, golden light, wood-look concourse floor - rather than an industrial grey box.
   const c = document.createElement('canvas');
   c.width = 512; c.height = 512;
   const g = c.getContext('2d');
-  g.fillStyle = '#aab0b9';   // was near-white; a real precast/drywall arena wall reads mid-grey under these lights
+  g.fillStyle = '#d9cbaa';
   g.fillRect(0, 0, 512, 512);
-  g.strokeStyle = 'rgba(40,46,54,.35)';
+  g.strokeStyle = 'rgba(70,55,35,.28)';
   g.lineWidth = 2;
   for (let x = 0; x <= 512; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 512); g.stroke(); }
   for (let y = 0; y <= 512; y += 256) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Wood-look plank floor for the concourse (outside the field/stands, which keep their own carpet/deck)
+function floorTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const g = c.getContext('2d');
+  const planks = 8, ph = 256 / planks;
+  for (let i = 0; i < planks; i++) {
+    const base = 130 + Math.floor(Math.random() * 25);
+    g.fillStyle = `rgb(${base},${base - 35},${base - 65})`;
+    g.fillRect(0, i * ph, 256, ph);
+    g.strokeStyle = 'rgba(40,25,12,.5)'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(0, i * ph); g.lineTo(256, i * ph); g.stroke();
+    for (let n = 0; n < 60; n++) { g.strokeStyle = `rgba(60,40,20,${0.03 + Math.random() * 0.05})`; const y = i * ph + Math.random() * ph; g.beginPath(); g.moveTo(Math.random() * 256, y); g.lineTo(Math.random() * 256, y); g.stroke(); }
+  }
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
@@ -75,9 +98,11 @@ export function buildVenue() {
   // back wall stops around field-edge + 9.5 m); tightened to a walkable ~3 m so the room isn't mostly empty.
   const X0 = -12.5, X1 = L + 12.5, Zfar = -W - 12.5, Znear = 17, H = 13;
 
-  // Floor: polished concrete beyond the field
+  // Floor: wood-look concourse beyond the field/stands (which keep their own carpet/deck untouched)
+  const ftex = floorTexture();
+  ftex.repeat.set((X1 - X0 + 4) / 3, (Znear - Zfar + 4) / 3);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 4, Znear - Zfar + 4),
-    new THREE.MeshStandardMaterial({ color: 0x5c6269, roughness: 0.6, metalness: 0.04 }));
+    new THREE.MeshStandardMaterial({ map: ftex, roughness: 0.45 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, -0.012, (Znear + Zfar) / 2);
   floor.receiveShadow = true;
@@ -86,7 +111,7 @@ export function buildVenue() {
   // Walls
   const wt = wallTexture();
   const wallMat = (rx, ry) => { const t = wt.clone(); t.needsUpdate = true; t.repeat.set(rx, ry); return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
-  const navy = new THREE.MeshStandardMaterial({ color: 0x1a2b52, roughness: 0.8 });
+  const navy = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.6 });   // wood-tone accent band
   const wall = (w, h, x, y, z, ry) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat(w / 4, h / 4));
     m.position.set(x, y, z);
