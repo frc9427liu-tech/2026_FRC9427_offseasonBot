@@ -30,6 +30,7 @@ const EN = {
   外觀模型: 'Model', 目前模型: 'Current model', 之後匯入: 'Imported later', '之後匯入 Onshape': 'Onshape import coming later',
   簡化方塊: 'Simple block', 顏色: 'Colour', 聯盟色: 'Alliance colour',
   程式與按鍵: 'Code & bindings', 換一個專案: 'Change project', 選擇專案資料夾: 'Choose project folder', '等待選擇…': 'Waiting for a folder…', 切換: 'Switch', 無法載入: 'Could not load', 未選擇: 'None selected', '見「操作」頁': 'See the Controls page',
+  導入程式碼: 'Import code', '選擇中…': 'Selecting…',
   '跳出資料夾視窗，選有 gradlew 的那一層；選好會自動重新啟動機器人程式': 'Opens a folder dialog - pick the folder with gradlew; the robot program restarts automatically', 機器人程式: 'Robot program', 目前使用: 'In use', 按鍵綁定: 'Button bindings',
   '自動從 RobotContainer 讀取': 'Read automatically from RobotContainer', 尚未連線: 'Not connected',
   機構描述: 'Mechanisms', 狀態: 'Status', 等待橋接程式: 'Waiting for the bridge', 說明: 'About',

@@ -5,7 +5,7 @@ import { t, tf, LANGS, getLang, setLang } from './i18n.js';
 // runs (main.js setAppState), and getElementById can't find detached nodes.
 const elCache = {};
 const $ = (id) => elCache[id] || (elCache[id] = document.getElementById(id));
-const LOBBY_IDS = ['dock', 'cards', 'rail', 'modelist', 'prevtag', 'modelabel', 'startsub', 'modebtn', 'modes', 'mtitle', 'mlist', 'mcontent', 'modal', 'start'];
+const LOBBY_IDS = ['dock', 'cards', 'rail', 'modelist', 'prevtag', 'modelabel', 'startsub', 'modebtn', 'modes', 'mtitle', 'mlist', 'mcontent', 'modal', 'start', 'importbtn', 'importlabel'];
 
 export const settings = {
   quality: '高', crowd: '自動', shadows: true, vsync: true, volume: '中', touch: '自動',
@@ -126,6 +126,16 @@ export function setProjectInfo(info, { pick, use } = {}) {
   }
   rows.push(val('按鍵綁定', '自動從 RobotContainer 讀取', '見「操作」頁'));
   page[1] = rows;
+
+  // lobby shortcut button next to START mirrors the same busy/loaded state
+  const ib = $('importbtn');
+  if (ib) {
+    ib.classList.toggle('busy', !!(info && info.busy));
+    ib.classList.toggle('loaded', !!(info && info.project));
+    ib.title = info && info.project ? info.project : '選擇機器人程式資料夾（有 gradlew 的那一層）';
+  }
+  const il = $('importlabel');
+  if (il) il.textContent = info && info.busy ? t('選擇中…') : (info && info.project ? baseName(info.project) : t('導入程式碼'));
 }
 
 // ---- ROBOT > 機構描述: the robot description the game-piece rules use (bridge/mechanisms.mjs), editable ----
@@ -313,6 +323,7 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
     const cur = MODE_GROUPS[group].modes[mode];
     if (cur.on) onStart(cur);
   };
+  $('importbtn').onclick = () => projectCtx.pick();
   addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!$('modal').hidden) close();
