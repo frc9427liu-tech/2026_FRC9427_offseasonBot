@@ -88,18 +88,29 @@ async function switchProject(dir) {
   return r;
 }
 // Native folder picker (the browser can't hand over a real path). Runs on the machine the bridge is on.
+// The owner form must actually be Shown (and topmost + foreground) or the dialog opens behind the
+// browser/game window with no indication anything happened - it did open, just out of sight.
 function pickFolder() {
   return new Promise((resolve) => {
     if (process.platform !== 'win32') return resolve(null);
     const ps = [
       '[Console]::OutputEncoding=[Text.Encoding]::UTF8',
       'Add-Type -AssemblyName System.Windows.Forms',
+      'Add-Type -AssemblyName System.Drawing',
+      '$f=New-Object System.Windows.Forms.Form',
+      '$f.StartPosition="Manual"',
+      '$f.Location=New-Object System.Drawing.Point(-2000,-2000)',
+      '$f.Size=New-Object System.Drawing.Size(1,1)',
+      '$f.ShowInTaskbar=$false',
+      '$f.TopMost=$true',
+      '$f.Show()',
+      '$f.Activate()',
       '$d=New-Object System.Windows.Forms.FolderBrowserDialog',
       "$d.Description='WPILib robot project folder (the one with gradlew / build.gradle)'",
       '$d.ShowNewFolderButton=$false',
       `$d.SelectedPath='${(currentProject() || '').replace(/'/g, "''")}'`,
-      '$f=New-Object System.Windows.Forms.Form -Property @{TopMost=$true}',
       "if($d.ShowDialog($f) -eq 'OK'){[Console]::Out.Write($d.SelectedPath)}",
+      '$f.Close()',
     ].join('; ');
     const p = spawn('powershell.exe', ['-NoProfile', '-STA', '-Command', ps], { windowsHide: true });
     let out = '';
