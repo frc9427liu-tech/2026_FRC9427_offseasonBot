@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 import { decodeMulti } from '@msgpack/msgpack';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { analyzeProject } from './analyze.mjs';
@@ -86,6 +87,36 @@ async function switchProject(dir) {
   const r = startRobot(dir);
   broadcast(projectInfo());
   return r;
+}
+// The browser can only hand us a folder NAME (webkitdirectory / drag-and-drop never expose a real OS path -
+// that's blocked by every browser for security, not something we can work around from the page). So a
+// browser-native pick resolves to a path by matching that name against a handful of likely locations, and
+// only falls back to the OS dialog below when that doesn't turn up exactly one match.
+function candidateRoots() {
+  const roots = new Set();
+  const home = os.homedir();
+  ['Desktop', 'Documents', 'Downloads'].forEach((d) => roots.add(path.join(home, d)));
+  for (const p of config.recent || []) roots.add(path.dirname(p));
+  const cur = currentProject();
+  if (cur) roots.add(path.dirname(cur));
+  roots.add(path.join(here, '..', '..'));   // this repo's own parent: where teammates keep sibling project folders
+  return [...roots].filter((r) => { try { return fs.statSync(r).isDirectory(); } catch { return false; } });
+}
+function findProjectByName(name) {
+  name = String(name || '').trim();
+  if (!name) return [];
+  const found = new Set();
+  for (const root of candidateRoots()) {
+    const direct = path.join(root, name);
+    if (!projectProblem(direct)) found.add(path.resolve(direct));
+    let entries; try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.toLowerCase() !== name.toLowerCase()) continue;
+      const full = path.join(root, e.name);
+      if (!projectProblem(full)) found.add(path.resolve(full));
+    }
+  }
+  return [...found];
 }
 // Native folder picker (the browser can't hand over a real path). Runs on the machine the bridge is on.
 // The owner form must actually be Shown (and topmost + foreground) or the dialog opens behind the
@@ -357,6 +388,12 @@ wss.on('connection', (ws) => {
     else if (m.t === 'stop') stopRobot();
     else if (m.t === 'pickProject') pickFolder().then((dir) => (dir ? switchProject(dir) : { ok: false, cancelled: true })).then((r) => send(ws, { t: 'projectResult', ...r }));
     else if (m.t === 'setProject') switchProject(m.project).then((r) => send(ws, { t: 'projectResult', ...r }));
+    else if (m.t === 'findProjectByName') {
+      const matches = findProjectByName(m.name);
+      if (matches.length === 1) switchProject(matches[0]).then((r) => send(ws, { t: 'projectResult', ...r }));
+      else send(ws, { t: 'projectResult', ok: false, notFound: true, ambiguous: matches.length > 1, candidates: matches, error: matches.length ? `找到 ${matches.length} 個同名資料夾，用手動選的` : '沒找到同名資料夾，用手動選的' });
+    }
+    else if (m.t === 'ping') send(ws, { t: 'pong', ts: m.ts });
     else if (m.t === 'resetPose') chassis.reset(m.x ?? 2, m.y ?? 4, m.deg ?? 0);
     else if (m.t === 'devices') send(ws, { t: 'devices', devices: state.hal.devices, mech: mechInfo });
     else if (m.t === 'saveRobotDesc' && m.desc) {

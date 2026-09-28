@@ -4,10 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>FRC 9427 Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./src/style.css">
 </head>
 <body class="lobby">
 <canvas id="view"></canvas>
+<!-- Browser-native project import: the OS-level folder picker (webkitdirectory click), and a full-page drop
+     target for dragging a project folder straight in. Neither hands JS a real filesystem path (browsers block
+     that); main.js sends the folder NAME to the bridge, which matches it against disk. -->
+<input type="file" id="importFile" webkitdirectory directory multiple hidden>
+<div id="dropOverlay" class="drop-overlay" hidden><div class="drop-msg"><span class="g">📂</span>放開以匯入機器人程式資料夾</div></div>
 <!-- LOBBY state: menus only. Detached from the page while a simulation runs (main.js setAppState). -->
 <div id="lobbyRoot">
 <div id="shade"></div>
@@ -60,6 +68,7 @@
   <button id="hudExit" class="hud-exit" title="Esc">‹ <span id="hudExitLabel">離開</span></button>
   <div class="hud-score"><span class="hs-b" id="hudBlue">0</span><span class="hs-t"><b id="hudTime">--:--</b><small id="hudPhase"></small></span><span class="hs-r" id="hudRed">0</span></div>
   <div class="hud-right">
+    <div id="netBadge" class="netbadge"><span class="dot" id="netDot"></span><span id="netText">--</span><span class="sep">·</span><span id="netPing">-- ms</span><span class="sep">·</span><span id="netProj" class="proj">未選擇</span></div>
     <span class="pill" id="hudFps">-- FPS</span>
     <div id="camModes" class="cam-modes" title="V"><button data-cam="free" id="camFree">自由</button><button data-cam="driver" id="camDriver">駕駛員</button><button data-cam="follow" id="camFollow">跟車</button></div>
   </div>

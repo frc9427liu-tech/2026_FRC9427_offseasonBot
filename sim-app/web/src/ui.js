@@ -210,7 +210,7 @@ export function setRobotDesc(desc, { getState, save, motors } = {}) {
     ...DESC_ROWS.map(([type, path, k, hint, step]) => (type === 'h' ? { type: 'head', k: path } : { type, path, k, hint: hint || '', step }))];
 }
 
-export function initUI({ onStart, onPreview, onSettingChange }) {
+export function initUI({ onStart, onPreview, onSettingChange, onImport }) {
   LOBBY_IDS.forEach($);   // cache while everything is still attached
   // dock + cards
   const renderLobby = () => {
@@ -323,7 +323,7 @@ export function initUI({ onStart, onPreview, onSettingChange }) {
     const cur = MODE_GROUPS[group].modes[mode];
     if (cur.on) onStart(cur);
   };
-  $('importbtn').onclick = () => projectCtx.pick();
+  $('importbtn').onclick = () => onImport();
   addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!$('modal').hidden) close();

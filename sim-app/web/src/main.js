@@ -89,12 +89,25 @@ window.__link = link; // dev hook
 window.__lookAt = (px, py, pz, tx, ty, tz) => { camera.position.set(px, py, pz); controls.target.set(tx, ty, tz); controls.update(); }; // dev hook
 window.__link = link;
 const dsEl = { state: document.getElementById('dsstate'), en: document.getElementById('dsen'), mode: document.getElementById('dsmode'), bar: document.getElementById('dsbar') };
+// HUD corner badge: bridge/NT connection, round-trip ping, and which project is actually loaded
+const netEl = { badge: document.getElementById('netBadge'), text: document.getElementById('netText'), ping: document.getElementById('netPing'), proj: document.getElementById('netProj') };
+const shortName = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || '未選擇';
+function updateNetBadge(l) {
+  const live = l.connected && l.running && l.state && l.state.hal;
+  netEl.badge.classList.toggle('ok', !!live);
+  netEl.badge.classList.toggle('bad', !l.connected);
+  netEl.text.textContent = !l.connected ? 'OFFLINE' : !l.running ? 'STOPPED' : live ? 'LIVE' : 'STARTING';
+  netEl.ping.textContent = l.connected && l.ping != null ? `${l.ping} ms` : '-- ms';
+  netEl.proj.textContent = shortName(l.project && l.project.project);
+  netEl.proj.title = (l.project && l.project.project) || '';
+}
 link.onStatus = (l) => {
   dsEl.bar.hidden = false;
   dsEl.state.textContent = !l.connected ? 'BRIDGE: OFFLINE' : !l.running ? 'ROBOT CODE: STOPPED' : l.state && l.state.hal ? 'ROBOT CODE: RUNNING' : 'ROBOT CODE: STARTING...';
   dsEl.state.className = 'ds-chip ' + (l.connected && l.running && l.state && l.state.hal ? 'ok' : 'bad');
   dsEl.en.textContent = l.ds.enabled ? 'DISABLE' : 'ENABLE'; dsEl.en.classList.toggle('on', l.ds.enabled);
   dsEl.mode.textContent = l.ds.autonomous ? 'AUTO' : 'TELEOP';
+  updateNetBadge(l);
 };
 dsEl.en.onclick = () => link.setDs({ enabled: !link.ds.enabled });
 dsEl.mode.onclick = () => link.setDs({ autonomous: !link.ds.autonomous });
@@ -316,6 +329,7 @@ const uiApi = initUI({
     if (k === 'touch') touchUI.setMode(v);
     if (k === 'cam' && VIEW_NAMES[v]) VIEWS[VIEW_NAMES[v]]();
   },
+  onImport: () => importFile.click(),
 });
 // control panel follows the robot's own source: re-read whenever the bridge re-analyses the project
 const touchUI = createTouchUI(link);
@@ -326,5 +340,32 @@ if (link.controls) link.onControls(link.controls);
 link.onDesc = (desc) => { setRobotDesc(desc, { getState: () => link.state, save: (d) => link.saveDesc(d), motors: link.descMotors }); uiApi.refresh(); };
 if (link.desc) link.onDesc(link.desc);
 // ROBOT > 程式與按鍵: pick / switch the robot project from the UI (the bridge opens the folder dialog)
-link.onProject = (info) => { setProjectInfo(info, { pick: () => link.pickProject(), use: (p) => link.useProject(p) }); uiApi.refresh(); };
+link.onProject = (info) => { setProjectInfo(info, { pick: () => link.pickProject(), use: (p) => link.useProject(p) }); uiApi.refresh(); updateNetBadge(link); };
 if (link.project) link.onProject(link.project);
+
+// ---------- browser-native import: webkitdirectory click-picker + full-page drag & drop ----------
+// Browsers never hand JS a real filesystem path from either of these (security sandbox, not a bug we can
+// route around) - only the dropped/picked folder's NAME. The bridge resolves that name against disk
+// (server.mjs findProjectByName) and only falls back to its own OS dialog when that's ambiguous.
+const importFile = document.getElementById('importFile');
+const dropOverlay = document.getElementById('dropOverlay');
+importFile.onchange = () => {
+  const f = importFile.files && importFile.files[0];
+  const name = f ? (f.webkitRelativePath || '').split('/')[0] : '';
+  if (name) link.findProject(name); else link.pickProject();
+  importFile.value = '';
+};
+let dragDepth = 0;
+const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+addEventListener('dragenter', (e) => { if (appState !== 'lobby' || !hasFiles(e)) return; dragDepth++; dropOverlay.hidden = false; });
+addEventListener('dragover', (e) => { if (appState === 'lobby' && hasFiles(e)) e.preventDefault(); });
+addEventListener('dragleave', () => { if (dragDepth > 0 && --dragDepth === 0) dropOverlay.hidden = true; });
+addEventListener('drop', (e) => {
+  if (appState !== 'lobby' || !hasFiles(e)) return;
+  e.preventDefault();
+  dragDepth = 0; dropOverlay.hidden = true;
+  const item = e.dataTransfer.items && e.dataTransfer.items[0];
+  const entry = item && item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+  if (entry && entry.isDirectory) link.findProject(entry.name);
+  else link.pickProject();   // a lone dropped file (e.g. build.gradle): no folder name available, ask directly
+});

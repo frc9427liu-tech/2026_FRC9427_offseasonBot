@@ -130,7 +130,7 @@ export function createRobotLink(scene) {
   scene.add(robot);
 
   const link = {
-    robot, connected: false, running: false, state: null, log: [], onStatus: () => {},
+    robot, connected: false, running: false, state: null, log: [], onStatus: () => {}, ping: null,
     ds: { enabled: false, autonomous: false }, pad: { axes: [0, 0, 0, 0, 0, 0], buttons: new Array(12).fill(false), povs: [-1] },
     onPose: null,
   };
@@ -164,7 +164,14 @@ export function createRobotLink(scene) {
       else if (m.t === 'log') { link.log.push(m.line); if (link.log.length > 200) link.log.shift(); }
       else if (m.t === 'hello') { link.log = m.log || []; }
       else if (m.t === 'project') { link.project = { project: m.project, recent: m.recent || [], busy: false, error: null }; if (link.onProject) link.onProject(link.project); }
-      else if (m.t === 'projectResult') { link.project = { ...(link.project || {}), busy: false, error: m.ok || m.cancelled ? null : m.error }; if (link.onProject) link.onProject(link.project); }
+      else if (m.t === 'projectResult') {
+        link.project = { ...(link.project || {}), busy: false, error: m.ok || m.cancelled ? null : m.error };
+        if (link.onProject) link.onProject(link.project);
+        // browser-native pick could only match a folder NAME; no (or more than one) hit on disk -> fall back
+        // to the bridge's own (topmost-fixed) OS folder dialog so the import still completes in one more click
+        if (!m.ok && m.notFound) link.pickProject();
+      }
+      else if (m.t === 'pong') { link.ping = Math.round(performance.now() - m.ts); if (link.onStatus) link.onStatus(link); }
       else if (m.t === 'robotDesc') { link.desc = m.desc; link.descMotors = m.motors || []; fitModelToDesc(robot, m.desc); if (link.onDesc) link.onDesc(m.desc); }
     };
   }
@@ -178,6 +185,9 @@ export function createRobotLink(scene) {
   const projectBusy = () => { link.project = { ...(link.project || {}), busy: true, error: null }; if (link.onProject) link.onProject(link.project); };
   link.pickProject = () => { projectBusy(); send({ t: 'pickProject' }); };
   link.useProject = (dir) => { projectBusy(); send({ t: 'setProject', project: dir }); };
+  // browser-native import (webkitdirectory picker or drag-and-drop): only a folder NAME crosses into the
+  // page's JS (browsers never hand out a real filesystem path), so the bridge resolves it against disk.
+  link.findProject = (name) => { projectBusy(); send({ t: 'findProjectByName', name }); };
   link.saveDesc = (desc) => { link.desc = desc; fitModelToDesc(robot, desc); send({ t: 'saveRobotDesc', desc }); };
   link.setDs = (patch) => { Object.assign(link.ds, patch); send({ t: 'ds', enabled: link.ds.enabled, autonomous: link.ds.autonomous }); };
 
@@ -227,6 +237,7 @@ export function createRobotLink(scene) {
     const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v);
     send({ t: 'joy', index: 0, axes: pad.axes.map(dz), buttons: pad.buttons, povs: pad.povs });
   }, 20);
+  setInterval(() => { if (link.connected) send({ t: 'ping', ts: performance.now() }); }, 2000);
 
   return link;
 }
