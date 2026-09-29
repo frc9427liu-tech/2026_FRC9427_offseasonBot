@@ -21,7 +21,7 @@ html,body{height:100%;background:#0b0a12;overflow:hidden;font-family:"Noto Sans 
 <div id="title">對不起,老大</div>
 <div id="stage"></div>
 <script>
-const msgs=['對不起','我想妳了','妳最重要','我會改','別生氣了嘛','抱抱妳','我在這裡','想好好珍惜妳','多喝水哦~','天冷多穿衣服','別熬夜','好好吃飯','喜歡妳','美樂蒂','貓貓也想妳','陪妳吃巴斯克'];
+const msgs=['記得吃飯','要多喝水','別熬夜','對不起','我想妳了','妳最重要','我會改','別生氣了嘛','抱抱妳','我在這裡','想好好珍惜妳','天冷多穿衣服','喜歡妳'];
 const cols=['#ffb6d0','#ffd1e3','#ffc4dd','#e7c6ff','#c7e0ff','#fff0a8','#ffd6c2','#ff9fc4','#b8f0c8'];
 const stage=document.getElementById('stage'),title=document.getElementById('title');
 const W=()=>innerWidth,H=()=>innerHeight;
@@ -30,9 +30,9 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function run(){
   // step 1: 對不起老大
   await wait(400);title.style.opacity=1;
-  await wait(2800);
+  await wait(1800);
   // step 2: popups, one every 0.2s, surround into a heart
-  const N=52,unit=Math.min(W(),H());
+  const N=56,unit=Math.min(W(),H());
   const cw=Math.max(64,unit*.115),ch=cw*.42;
   const cx=W()/2,cy=H()/2+unit*.03,sc=unit/40;
   const cards=[];
@@ -47,7 +47,7 @@ async function run(){
     d.style.zIndex=k;
     stage.appendChild(d);cards.push({d,px,py});
     requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.add('in')));
-    await wait(200);
+    await wait(80);
   }
   // step 3: hold 2s, then scatter
   await wait(2000);
@@ -63,4 +63,5 @@ run();
 </script>
 </body>
 </html>
+
 
