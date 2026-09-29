@@ -1,10 +1,10 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>給小媮</title>
+<title>給妳</title>
 <style>
 :root{--pink:#ffb6d0;--deep:#ff7fae;--cream:#fff6ef;--ink:#3b2a3a}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -13,7 +13,7 @@ html,body{height:100%;background:#05040f;color:#fff;font-family:"Noto Serif TC",
 #galaxy:active{cursor:grabbing}
 .intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;z-index:5;transition:opacity 1.6s}
 .intro h1{font-weight:400;font-size:clamp(28px,6vw,54px);letter-spacing:.3em;text-shadow:0 0 30px #9ab8ff;opacity:0;animation:in 2.5s .6s forwards}
-.intro p{margin-top:18px;font-size:15px;letter-spacing:.2em;color:#cdd8ff;opacity:0;animation:in 2s 2.4s forwards}
+.intro p{text-shadow:0 0 12px #000,0 0 24px #000;margin-top:18px;font-size:15px;letter-spacing:.2em;color:#cdd8ff;opacity:0;animation:in 2s 2.4s forwards}
 .intro button{pointer-events:auto;margin-top:48px;padding:12px 34px;border-radius:40px;border:1px solid #ffffff88;background:#ffffff14;color:#fff;font:inherit;letter-spacing:.3em;cursor:pointer;backdrop-filter:blur(6px);opacity:0;animation:in 2s 4s forwards;transition:.3s}
 .intro button:hover{background:#ffffff33;box-shadow:0 0 30px #ff9fc4}
 .hint{position:fixed;bottom:22px;width:100%;text-align:center;font-size:12px;color:#8fa0d8;letter-spacing:.2em;z-index:5;transition:opacity 1s}
@@ -40,7 +40,7 @@ html,body{height:100%;background:#05040f;color:#fff;font-family:"Noto Serif TC",
 <body>
 <canvas id="galaxy"></canvas>
 <div class="intro" id="intro">
-  <h1>小 媮</h1>
+  <h1>可愛的漂亮姊姊</h1>
   <p>這裡有一些話,想慢慢對妳說</p>
   <button id="go">進來看看</button>
 </div>
@@ -61,39 +61,64 @@ const cv=document.getElementById('galaxy'),cx=cv.getContext('2d');
 let W,H,DPR=Math.min(devicePixelRatio||1,2);
 function rs(){W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cx.setTransform(DPR,0,0,DPR,0,0)}
 addEventListener('resize',rs);rs();
-const N=4200,P=[];
-for(let i=0;i<N;i++){
-  const arm=i%3,r=Math.pow(Math.random(),.6)*1,ang=r*7+arm*Math.PI*2/3+(Math.random()-.5)*.6*(1-r*.4);
-  const sp=(Math.random()-.5)*.25*(1-r*.6);
-  const hue=r<.25?330:(r<.6?260:215);
-  P.push({x:Math.cos(ang)*r,z:Math.sin(ang)*r,y:sp*.5,h:hue+Math.random()*30-15,s:Math.random()*1.4+.4});
+const P=[],BG=[];
+function gauss(){return (Math.random()+Math.random()+Math.random()+Math.random()-2)/2}
+// spiral arms (logarithmic), 2 main arms + 2 faint
+const ARMS=4,NA=9000;
+for(let i=0;i<NA;i++){
+  const arm=i%ARMS,w=arm<2?1:.45;
+  const r=.08+Math.pow(Math.random(),.75)*.92;
+  const th=Math.log(r/.08)*2.6+arm*Math.PI/2+gauss()*(.18+.35*r)/w;
+  const spread=gauss()*.05*(1-r*.5);
+  const hue=r<.3?(20+r*200):(r<.6?(215+r*60):(250+r*40));
+  P.push({x:Math.cos(th)*r+spread,z:Math.sin(th)*r+spread,y:gauss()*.05*(1-r*.7),h:hue,l:42+Math.random()*22,s:Math.random()*1.5+.5,a:.4+Math.random()*.5,tw:Math.random()*6});
 }
-let rx=.9,ry=0,vx=0,vy=.0018,drag=false,lx=0,ly=0,t0=performance.now(),pulse=0;
+// bright bulge
+for(let i=0;i<2500;i++){
+  const r=Math.abs(gauss())*.22,a=Math.random()*6.283,b=gauss()*.6;
+  P.push({x:Math.cos(a)*r,z:Math.sin(a)*r,y:b*r*.9,h:25+Math.random()*30,l:80+Math.random()*15,s:Math.random()*1.4+.6,a:.5+Math.random()*.5,tw:Math.random()*6});
+}
+// pink dust clumps along arms
+for(let i=0;i<500;i++){
+  const arm=i%2,r=.25+Math.random()*.7,th=Math.log(r/.08)*2.6+arm*Math.PI/2+gauss()*.12;
+  P.push({x:Math.cos(th)*r,z:Math.sin(th)*r,y:gauss()*.02,h:325+Math.random()*20,l:62,s:Math.random()*2.6+1.2,a:.2,tw:Math.random()*6});
+}
+// background stars
+for(let i=0;i<350;i++)BG.push({x:Math.random(),y:Math.random(),s:Math.random()*1.3+.3,tw:Math.random()*6});
+// soft glow sprite
+const spr=document.createElement('canvas');spr.width=spr.height=64;
+{const g=spr.getContext('2d').createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(.25,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(255,255,255,0)');const c=spr.getContext('2d');c.fillStyle=g;c.fillRect(0,0,64,64)}
+let rx=1.0,ry=0,vx=0,vy=.0016,drag=false,lx=0,ly=0,dim=1;
 cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)});
-cv.addEventListener('pointermove',e=>{if(!drag)return;vy=(e.clientX-lx)*.0012;vx=(e.clientY-ly)*.0012;ry+=(e.clientX-lx)*.006;rx+=(e.clientY-ly)*.006;lx=e.clientX;ly=e.clientY});
+cv.addEventListener('pointermove',e=>{if(!drag)return;ry+=(e.clientX-lx)*.006;rx+=(e.clientY-ly)*.006;vy=(e.clientX-lx)*.0012;lx=e.clientX;ly=e.clientY});
 cv.addEventListener('pointerup',()=>{drag=false});
-let dim=1;
-function frame(){
-  cx.fillStyle='rgba(5,4,15,.35)';cx.fillRect(0,0,W,H);
-  if(!drag){ry+=vy;rx+=vx*.3;vx*=.95;vy+=(.0018-vy)*.02}
-  rx=Math.max(.2,Math.min(1.5,rx));
-  const cr=Math.cos(ry),sr=Math.sin(ry),cxx=Math.cos(rx),sxx=Math.sin(rx);
-  const S=Math.min(W,H)*.48*(1+pulse*.05);
-  cx.globalCompositeOperation='lighter';
-  for(const p of P){
-    let x=p.x*cr-p.z*sr,z=p.x*sr+p.z*cr,y=p.y;
-    const y2=y*cxx-z*sxx,z2=y*sxx+z*cxx;
-    const f=1.6/(1.6+z2*.6),px=W/2+x*S*f,py=H/2+y2*S*f;
-    cx.fillStyle=`hsla(${p.h},90%,${65+f*10}%,${.5*f*dim})`;
-    cx.fillRect(px,py,p.s*f,p.s*f);
-  }
+function frame(now){
+  now=now||0;const T=now/1000;
   cx.globalCompositeOperation='source-over';
-  const g=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,S*.25);
-  g.addColorStop(0,`rgba(255,200,230,${.35*dim})`);g.addColorStop(1,'rgba(255,200,230,0)');
-  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  cx.fillStyle='rgba(4,3,14,.28)';cx.fillRect(0,0,W,H);
+  if(!drag){ry+=vy;vy+=(.0016-vy)*.02}
+  rx=Math.max(.25,Math.min(1.45,rx));
+  const cr=Math.cos(ry),sr=Math.sin(ry),cxx=Math.cos(rx),sxx=Math.sin(rx);
+  const S=Math.min(W,H)*.5*Math.max(1,W/H*.55>1?1:1);
+  cx.globalCompositeOperation='lighter';
+  for(const b of BG){cx.fillStyle=`rgba(200,215,255,${(.25+.25*Math.sin(T*1.3+b.tw))*dim})`;cx.fillRect(b.x*W,b.y*H,b.s,b.s)}
+  // core + halo glow
+  cx.globalAlpha=.9*dim;
+  let g=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,S*.5);
+  g.addColorStop(0,'rgba(255,230,210,.55)');g.addColorStop(.25,'rgba(255,150,200,.18)');g.addColorStop(.6,'rgba(90,110,255,.08)');g.addColorStop(1,'rgba(60,70,200,0)');
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);cx.globalAlpha=1;
+  for(const p of P){
+    const x=p.x*cr-p.z*sr,z=p.x*sr+p.z*cr,y=p.y;
+    const y2=y*cxx-z*sxx,z2=y*sxx+z*cxx;
+    const f=1.5/(1.5+z2*.5),px=W/2+x*S*f,py=H/2+y2*S*f;
+    const tw=.75+.25*Math.sin(T*2+p.tw);
+    const al=p.a*f*tw*dim;
+    cx.fillStyle=`hsla(${p.h},100%,${p.l}%,${al})`;
+    if(p.s>1.9){const sz=p.s*7*f;cx.globalAlpha=al;cx.drawImage(spr,px-sz/2,py-sz/2,sz,sz);cx.globalAlpha=1}
+    else cx.fillRect(px,py,p.s*f*1.2,p.s*f*1.2);
+  }
   requestAnimationFrame(frame);
-}
-cx.fillStyle='#05040f';cx.fillRect(0,0,W,H);frame();
+}cx.fillStyle='#04030e';cx.fillRect(0,0,W,H);requestAnimationFrame(frame);
 
 /* ---- popups ---- */
 const msgs=['對不起','我想妳了','妳最重要','我會改','別生氣了嘛','抱抱妳','我在這裡','不是只會哄妳','想好好珍惜妳','多喝水哦~','天冷多穿衣服','別熬夜','好好吃飯','喜歡妳','🎀 美樂蒂','🐈 貓貓也想妳','🍰 陪妳吃巴斯克','我會好好聽妳說'];
@@ -131,7 +156,7 @@ function heart(done){
   let a=0,id;const t0=performance.now();
   (function spin(now){a=(now-t0)*.05;wrap.style.transform=`rotateX(-12deg) rotateY(${a}deg)`;id=requestAnimationFrame(spin)})(t0);
   const cap=document.createElement('div');
-  cap.textContent='對不起,小媮';
+  cap.textContent='對不起,可愛的漂亮姊姊';
   cap.style.cssText='position:fixed;z-index:23;left:0;right:0;bottom:12vh;text-align:center;font-size:clamp(20px,4vw,30px);letter-spacing:.4em;color:#fff;text-shadow:0 0 20px #ff9fc4;opacity:0;transition:opacity 1.5s';
   document.body.appendChild(cap);setTimeout(()=>cap.style.opacity=1,900);
   setTimeout(()=>{box.style.opacity=0;cap.style.opacity=0;setTimeout(()=>{cancelAnimationFrame(id);box.remove();cap.remove();done()},1300)},8000);
@@ -168,3 +193,5 @@ function startFloat(){
 </script>
 </body>
 </html>
+
+
