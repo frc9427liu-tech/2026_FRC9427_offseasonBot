@@ -70,13 +70,13 @@ for(let i=0;i<NA;i++){
   const r=.08+Math.pow(Math.random(),.75)*.92;
   const th=Math.log(r/.08)*2.6+arm*Math.PI/2+gauss()*(.18+.35*r)/w;
   const spread=gauss()*.05*(1-r*.5);
-  const hue=r<.3?(20+r*200):(r<.6?(215+r*60):(250+r*40));
+  const hue=r<.3?(330+r*100):(r<.6?(215+r*60):(250+r*40));
   P.push({x:Math.cos(th)*r+spread,z:Math.sin(th)*r+spread,y:gauss()*.05*(1-r*.7),h:hue,l:42+Math.random()*22,s:Math.random()*1.5+.5,a:.4+Math.random()*.5,tw:Math.random()*6});
 }
 // bright bulge
 for(let i=0;i<2500;i++){
   const r=Math.abs(gauss())*.22,a=Math.random()*6.283,b=gauss()*.6;
-  P.push({x:Math.cos(a)*r,z:Math.sin(a)*r,y:b*r*.9,h:25+Math.random()*30,l:80+Math.random()*15,s:Math.random()*1.4+.6,a:.5+Math.random()*.5,tw:Math.random()*6});
+  P.push({x:Math.cos(a)*r,z:Math.sin(a)*r,y:b*r*.9,h:330+Math.random()*50,l:78+Math.random()*15,s:Math.random()*1.4+.6,a:.5+Math.random()*.5,tw:Math.random()*6});
 }
 // pink dust clumps along arms
 for(let i=0;i<500;i++){
@@ -193,5 +193,6 @@ function startFloat(){
 </script>
 </body>
 </html>
+
 
 
