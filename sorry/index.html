@@ -110,18 +110,49 @@ function burst(done){
     if(++n>=total){clearInterval(iv);setTimeout(done,1600)}
   },Math.max(25,2600/total));
 }
+/* ---- 3D heart made of stacked popup cards (rotating) ---- */
+function heart(done){
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;inset:0;z-index:22;perspective:1100px;pointer-events:none;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 1.2s';
+  const wrap=document.createElement('div');wrap.style.cssText='position:relative;width:0;height:0;transform-style:preserve-3d';
+  box.appendChild(wrap);document.body.appendChild(box);
+  const sc=Math.min(W,H)/38,cw=Math.max(46,sc*4.2),ch=cw*.42,layers=11,pts=46;
+  for(let l=0;l<layers;l++){
+    for(let k=0;k<pts;k++){
+      const t=k/pts*Math.PI*2;
+      const x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+      const d=document.createElement('div');
+      d.style.cssText=`position:absolute;width:${cw}px;height:${ch}px;left:${-cw/2}px;top:${-ch/2}px;border-radius:5px;background:${cols[(k+l)%cols.length]};color:#3b2a3a;font:600 ${ch*.42}px/${ch}px "Microsoft JhengHei",sans-serif;text-align:center;overflow:hidden;white-space:nowrap;box-shadow:0 0 6px #0005;transform:translate3d(${x*sc*.5}px,${y*sc*.5}px,${(l-layers/2)*sc*.55}px)`;
+      d.textContent=msgs[(k*3+l)%msgs.length];
+      wrap.appendChild(d);
+    }
+  }
+  requestAnimationFrame(()=>box.style.opacity=1);
+  let a=0,id;const t0=performance.now();
+  (function spin(now){a=(now-t0)*.05;wrap.style.transform=`rotateX(-12deg) rotateY(${a}deg)`;id=requestAnimationFrame(spin)})(t0);
+  const cap=document.createElement('div');
+  cap.textContent='對不起,小媮';
+  cap.style.cssText='position:fixed;z-index:23;left:0;right:0;bottom:12vh;text-align:center;font-size:clamp(20px,4vw,30px);letter-spacing:.4em;color:#fff;text-shadow:0 0 20px #ff9fc4;opacity:0;transition:opacity 1.5s';
+  document.body.appendChild(cap);setTimeout(()=>cap.style.opacity=1,900);
+  setTimeout(()=>{box.style.opacity=0;cap.style.opacity=0;setTimeout(()=>{cancelAnimationFrame(id);box.remove();cap.remove();done()},1300)},8000);
+}
 document.getElementById('go').onclick=()=>{
   document.getElementById('intro').style.opacity=0;document.getElementById('hint').style.opacity=0;
   document.getElementById('intro').style.pointerEvents='none';
   burst(()=>{
     pops.style.transition='opacity 1.6s';pops.style.opacity=0;
+    heart(afterHeart);
+  });
+};
+function afterHeart(){
+  {
     const L=document.getElementById('letter');L.style.display='block';
     cv.style.pointerEvents='none';cv.style.zIndex=0;dim=.55;
     scrollTo(0,0);document.body.style.overflowY='auto';
     setTimeout(()=>pops.remove(),1800);
     startFloat();watch();
-  });
-};
+  }
+}
 function watch(){
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.35});
   document.querySelectorAll('.sec').forEach(s=>io.observe(s));
