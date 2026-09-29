@@ -46,7 +46,7 @@ async function run(){
       const px=cx+x*sc+(Math.random()-.5)*cw*.35,py=cy+y*sc+(Math.random()-.5)*ch*.5;
       const d=document.createElement('div');d.className='pop';
       d.style.cssText+=`left:${px}px;top:${py}px;width:${cw}px;background:${cols[(k+l*3)%cols.length]}`;
-      d.innerHTML=`<div class="bar"><span>♡</span><span>×</span></div><div class="msg" style="font-size:${ch*.42}px;padding:${ch*.22}px 6px">${msgs[(k+l*5)%msgs.length]}</div>`;
+      d.innerHTML=`<div class="bar"><span>♡</span><span>×</span></div><div class="msg" style="font-size:${ch*.34}px;padding:${ch*.22}px 6px">${msgs[(k+l*5)%msgs.length]}</div>`;
       d.style.zIndex=z++;
       stage.appendChild(d);cards.push({d,px,py});
       setTimeout(()=>d.classList.add('in'),l*25);
@@ -64,6 +64,7 @@ async function run(){
 </script>
 </body>
 </html>
+
 
 
 
