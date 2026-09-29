@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -8,7 +8,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:#0b0a12;overflow:hidden;font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
-#title{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#fff;font-size:clamp(28px,7vw,60px);letter-spacing:.3em;text-indent:.3em;opacity:0;transition:opacity 1.6s;z-index:5;text-shadow:0 0 24px #ff9fc4}
+#title{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:#fff;font-size:clamp(22px,4.6vw,44px);letter-spacing:.3em;text-indent:.3em;opacity:0;transition:opacity 1.6s;z-index:20;text-shadow:0 0 24px #ff9fc4}
 #stage{position:fixed;inset:0;z-index:10;pointer-events:none}
 .pop{position:absolute;border-radius:8px;box-shadow:0 4px 14px #0008;color:#3b2a3a;transform:translate(-50%,-50%) scale(.2);opacity:0;transition:transform .25s cubic-bezier(.3,1.6,.5,1),opacity .2s;overflow:hidden}
 .pop.in{transform:translate(-50%,-50%) scale(1);opacity:1}
@@ -32,8 +32,8 @@ async function run(){
   await wait(400);title.style.opacity=1;
   await wait(2800);
   // step 2: popups, one every 0.2s, surround into a heart
-  const N=48,unit=Math.min(W(),H());
-  const cw=Math.max(72,unit*.15),ch=cw*.42;
+  const N=52,unit=Math.min(W(),H());
+  const cw=Math.max(64,unit*.115),ch=cw*.42;
   const cx=W()/2,cy=H()/2+unit*.03,sc=unit/40;
   const cards=[];
   for(let k=0;k<N;k++){
@@ -63,3 +63,4 @@ run();
 </script>
 </body>
 </html>
+
