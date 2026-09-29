@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>給小媮</title>
+<style>
+:root{--pink:#ffb6d0;--deep:#ff7fae;--cream:#fff6ef;--ink:#3b2a3a}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#05040f;color:#fff;font-family:"Noto Serif TC","PingFang TC","Microsoft JhengHei",serif;overflow-x:hidden}
+#galaxy{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#galaxy:active{cursor:grabbing}
+.intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;z-index:5;transition:opacity 1.6s}
+.intro h1{font-weight:400;font-size:clamp(28px,6vw,54px);letter-spacing:.3em;text-shadow:0 0 30px #9ab8ff;opacity:0;animation:in 2.5s .6s forwards}
+.intro p{margin-top:18px;font-size:15px;letter-spacing:.2em;color:#cdd8ff;opacity:0;animation:in 2s 2.4s forwards}
+.intro button{pointer-events:auto;margin-top:48px;padding:12px 34px;border-radius:40px;border:1px solid #ffffff88;background:#ffffff14;color:#fff;font:inherit;letter-spacing:.3em;cursor:pointer;backdrop-filter:blur(6px);opacity:0;animation:in 2s 4s forwards;transition:.3s}
+.intro button:hover{background:#ffffff33;box-shadow:0 0 30px #ff9fc4}
+.hint{position:fixed;bottom:22px;width:100%;text-align:center;font-size:12px;color:#8fa0d8;letter-spacing:.2em;z-index:5;transition:opacity 1s}
+@keyframes in{to{opacity:1}}
+/* popups */
+#pops{position:fixed;inset:0;z-index:20;pointer-events:none;overflow:hidden}
+.pop{position:absolute;min-width:150px;border-radius:8px;box-shadow:0 6px 18px #0006;color:var(--ink);font-family:"Microsoft JhengHei","PingFang TC",sans-serif;font-size:15px;transform:scale(.3);opacity:0;animation:pop .35s forwards}
+.pop .bar{height:18px;background:#ffffffaa;border-radius:8px 8px 0 0;font-size:11px;padding:1px 8px;display:flex;justify-content:space-between}
+.pop .msg{padding:12px 18px;font-weight:600;text-align:center}
+@keyframes pop{to{transform:scale(1);opacity:1}}
+/* letter */
+#letter{position:relative;z-index:30;display:none;min-height:100vh;background:linear-gradient(180deg,#0b0620 0,#2b1236 25%,#7a3a63 60%,#ffd9e6 100%);padding:14vh 0 20vh}
+.sec{max-width:640px;margin:0 auto;padding:0 28px;min-height:70vh;display:flex;flex-direction:column;justify-content:center;opacity:0;transform:translateY(40px);transition:opacity 1.4s,transform 1.4s}
+.sec.show{opacity:1;transform:none}
+.sec h2{font-weight:400;font-size:clamp(24px,5vw,36px);letter-spacing:.15em;margin-bottom:26px;line-height:1.5}
+.sec p{font-size:clamp(17px,3.6vw,20px);line-height:2.1;letter-spacing:.06em;color:#fff}
+.sec.last p,.sec.last h2{color:var(--ink)}
+.emo{font-size:38px;margin-bottom:18px}
+.float{position:fixed;font-size:22px;pointer-events:none;z-index:25;animation:fl linear forwards}
+@keyframes fl{from{transform:translateY(0);opacity:.9}to{transform:translateY(-110vh);opacity:0}}
+.sign{margin-top:36px;text-align:right;font-size:18px}
+</style>
+</head>
+<body>
+<canvas id="galaxy"></canvas>
+<div class="intro" id="intro">
+  <h1>小 媮</h1>
+  <p>這裡有一些話,想慢慢對妳說</p>
+  <button id="go">進來看看</button>
+</div>
+<div class="hint" id="hint">用手指或滑鼠拖曳,可以轉動星系</div>
+<div id="pops"></div>
+
+<main id="letter">
+  <section class="sec"><div class="emo">🌙</div><h2>先說對不起</h2><p>我知道最近,我讓妳沒有安全感。<br>妳不喜歡的很多事,我也一直不懂得變通,<br>一次又一次,沒有真的改。</p></section>
+  <section class="sec"><div class="emo">🐈</div><h2>我做錯了什麼</h2><p>我沒有好好把握妳願意原諒我的機會。<br>我只會哄哄妳,<br>然後回頭,還是沒有顧慮到妳的感受。<br><br>這樣的我,一定讓妳很累吧。</p></section>
+  <section class="sec"><div class="emo">🍰</div><h2>我想讓妳知道</h2><p>我不是只因為害怕失去妳,才說這些。<br>我是真的想好好珍惜妳。<br><br>只是我真的不太會,<br>所以我會一件一件學,<br>用做的,不只用說的。</p></section>
+  <section class="sec"><div class="emo">🎀</div><h2>我想這樣做</h2><p>妳說不舒服的時候,我先聽完,不急著解釋。<br>妳沒有安全感的時候,我主動讓妳知道我在。<br>答應妳的事,我做到,不再只是哄。<br><br>妳可以隨時提醒我,我會認真接住。</p></section>
+  <section class="sec last"><div class="emo">💗</div><h2>不用現在回答我</h2><p>我不要求妳一定要原諒我。<br>妳想慢慢來,我就慢慢等,<br>也會用接下來的每一天,讓妳看見我有在改。<br><br>謝謝妳,還願意看到這裡。</p><div class="sign">— 喜歡妳的我</div></section>
+</main>
+
+<script>
+/* ---- galaxy: 2D canvas, 3D projection, drag to rotate ---- */
+const cv=document.getElementById('galaxy'),cx=cv.getContext('2d');
+let W,H,DPR=Math.min(devicePixelRatio||1,2);
+function rs(){W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;cx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener('resize',rs);rs();
+const N=4200,P=[];
+for(let i=0;i<N;i++){
+  const arm=i%3,r=Math.pow(Math.random(),.6)*1,ang=r*7+arm*Math.PI*2/3+(Math.random()-.5)*.6*(1-r*.4);
+  const sp=(Math.random()-.5)*.25*(1-r*.6);
+  const hue=r<.25?330:(r<.6?260:215);
+  P.push({x:Math.cos(ang)*r,z:Math.sin(ang)*r,y:sp*.5,h:hue+Math.random()*30-15,s:Math.random()*1.4+.4});
+}
+let rx=.9,ry=0,vx=0,vy=.0018,drag=false,lx=0,ly=0,t0=performance.now(),pulse=0;
+cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!drag)return;vy=(e.clientX-lx)*.0012;vx=(e.clientY-ly)*.0012;ry+=(e.clientX-lx)*.006;rx+=(e.clientY-ly)*.006;lx=e.clientX;ly=e.clientY});
+cv.addEventListener('pointerup',()=>{drag=false});
+let dim=1;
+function frame(){
+  cx.fillStyle='rgba(5,4,15,.35)';cx.fillRect(0,0,W,H);
+  if(!drag){ry+=vy;rx+=vx*.3;vx*=.95;vy+=(.0018-vy)*.02}
+  rx=Math.max(.2,Math.min(1.5,rx));
+  const cr=Math.cos(ry),sr=Math.sin(ry),cxx=Math.cos(rx),sxx=Math.sin(rx);
+  const S=Math.min(W,H)*.48*(1+pulse*.05);
+  cx.globalCompositeOperation='lighter';
+  for(const p of P){
+    let x=p.x*cr-p.z*sr,z=p.x*sr+p.z*cr,y=p.y;
+    const y2=y*cxx-z*sxx,z2=y*sxx+z*cxx;
+    const f=1.6/(1.6+z2*.6),px=W/2+x*S*f,py=H/2+y2*S*f;
+    cx.fillStyle=`hsla(${p.h},90%,${65+f*10}%,${.5*f*dim})`;
+    cx.fillRect(px,py,p.s*f,p.s*f);
+  }
+  cx.globalCompositeOperation='source-over';
+  const g=cx.createRadialGradient(W/2,H/2,0,W/2,H/2,S*.25);
+  g.addColorStop(0,`rgba(255,200,230,${.35*dim})`);g.addColorStop(1,'rgba(255,200,230,0)');
+  cx.fillStyle=g;cx.fillRect(0,0,W,H);
+  requestAnimationFrame(frame);
+}
+cx.fillStyle='#05040f';cx.fillRect(0,0,W,H);frame();
+
+/* ---- popups ---- */
+const msgs=['對不起','我想妳了','妳最重要','我會改','別生氣了嘛','抱抱妳','我在這裡','不是只會哄妳','想好好珍惜妳','多喝水哦~','天冷多穿衣服','別熬夜','好好吃飯','喜歡妳','🎀 美樂蒂','🐈 貓貓也想妳','🍰 陪妳吃巴斯克','我會好好聽妳說'];
+const cols=['#ffb6d0','#ffd1e3','#ffc4dd','#e7c6ff','#c7e0ff','#fff0a8','#ffd6c2','#ff9fc4'];
+const pops=document.getElementById('pops');
+function burst(done){
+  let n=0;const total=Math.min(90,Math.floor(W*H/9000));
+  const iv=setInterval(()=>{
+    const d=document.createElement('div');d.className='pop';
+    d.style.background=cols[Math.random()*cols.length|0];
+    d.style.left=Math.random()*(W-170)+'px';d.style.top=Math.random()*(H-80)+'px';
+    d.innerHTML='<div class="bar"><span>♡</span><span>×</span></div><div class="msg">'+msgs[Math.random()*msgs.length|0]+'</div>';
+    pops.appendChild(d);
+    if(++n>=total){clearInterval(iv);setTimeout(done,1600)}
+  },Math.max(25,2600/total));
+}
+document.getElementById('go').onclick=()=>{
+  document.getElementById('intro').style.opacity=0;document.getElementById('hint').style.opacity=0;
+  document.getElementById('intro').style.pointerEvents='none';
+  burst(()=>{
+    pops.style.transition='opacity 1.6s';pops.style.opacity=0;
+    const L=document.getElementById('letter');L.style.display='block';
+    cv.style.pointerEvents='none';cv.style.zIndex=0;dim=.55;
+    scrollTo(0,0);document.body.style.overflowY='auto';
+    setTimeout(()=>pops.remove(),1800);
+    startFloat();watch();
+  });
+};
+function watch(){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.35});
+  document.querySelectorAll('.sec').forEach(s=>io.observe(s));
+}
+function startFloat(){
+  const em=['🎀','💗','🐈','🍰','✨','🌸'];
+  setInterval(()=>{
+    const f=document.createElement('div');f.className='float';f.textContent=em[Math.random()*em.length|0];
+    f.style.left=Math.random()*100+'vw';f.style.bottom='-30px';f.style.animationDuration=(7+Math.random()*6)+'s';
+    document.body.appendChild(f);setTimeout(()=>f.remove(),14000);
+  },900);
+}
+</script>
+</body>
+</html>
