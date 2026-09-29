@@ -125,49 +125,49 @@ const msgs=['對不起','我想妳了','妳最重要','我會改','別生氣了�
 const cols=['#ffb6d0','#ffd1e3','#ffc4dd','#e7c6ff','#c7e0ff','#fff0a8','#ffd6c2','#ff9fc4'];
 const pops=document.getElementById('pops');
 function burst(done){
-  let n=0;const total=Math.min(90,Math.floor(W*H/9000));
-  const iv=setInterval(()=>{
-    const d=document.createElement('div');d.className='pop';
-    d.style.background=cols[Math.random()*cols.length|0];
-    d.style.left=Math.random()*(W-170)+'px';d.style.top=Math.random()*(H-80)+'px';
-    d.innerHTML='<div class="bar"><span>♡</span><span>×</span></div><div class="msg">'+msgs[Math.random()*msgs.length|0]+'</div>';
-    pops.appendChild(d);
-    if(++n>=total){clearInterval(iv);setTimeout(done,1600)}
-  },Math.max(25,2600/total));
-}
-/* ---- 3D heart made of stacked popup cards (rotating) ---- */
+  const total=Math.min(220,Math.floor(W*H/4200));let n=0;
+  (function nextPop(){
+    const batch=1+Math.floor(n/25);
+    for(let b=0;b<batch&&n<total;b++,n++){
+      const d=document.createElement('div');d.className='pop';
+      d.style.background=cols[Math.random()*cols.length|0];
+      d.style.left=Math.random()*(W-170)+'px';d.style.top=Math.random()*(H-60)+'px';
+      d.innerHTML='<div class="bar"><span>♡</span><span>×</span></div><div class="msg">'+msgs[Math.random()*msgs.length|0]+'</div>';
+      pops.appendChild(d);
+    }
+    if(n>=total){setTimeout(done,2500);return}
+    setTimeout(nextPop,Math.max(20,260-n*1.6));
+  })();
+}/* ---- 3D heart made of stacked popup cards (rotating) ---- */
 function heart(done){
   const box=document.createElement('div');
   box.style.cssText='position:fixed;inset:0;z-index:22;perspective:1100px;pointer-events:none;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 1.2s';
   const wrap=document.createElement('div');wrap.style.cssText='position:relative;width:0;height:0;transform-style:preserve-3d';
   box.appendChild(wrap);document.body.appendChild(box);
-  const sc=Math.min(W,H)/38,cw=Math.max(46,sc*4.2),ch=cw*.42,layers=11,pts=46;
+  dim=.3;const sc=Math.min(W,H)/24,cw=Math.max(46,sc*4.2),ch=cw*.42,layers=12,pts=64;
   for(let l=0;l<layers;l++){
     for(let k=0;k<pts;k++){
-      const t=k/pts*Math.PI*2;
+      const t=Math.PI+k/pts*Math.PI*2;
       const x=16*Math.pow(Math.sin(t),3),y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
       const d=document.createElement('div');
-      d.style.cssText=`position:absolute;width:${cw}px;height:${ch}px;left:${-cw/2}px;top:${-ch/2}px;border-radius:5px;background:${cols[(k+l)%cols.length]};color:#3b2a3a;font:600 ${ch*.42}px/${ch}px "Microsoft JhengHei",sans-serif;text-align:center;overflow:hidden;white-space:nowrap;box-shadow:0 0 6px #0005;transform:translate3d(${x*sc*.5}px,${y*sc*.5}px,${(l-layers/2)*sc*.55}px)`;
-      d.textContent=msgs[(k*3+l)%msgs.length];
-      wrap.appendChild(d);
+      d.style.cssText=`position:absolute;width:${cw}px;height:${ch}px;left:${-cw/2}px;top:${-ch/2}px;border-radius:5px;background:${(l===0||l===layers-1)?cols[(k*7+l)%cols.length]:"#eef0f8"};color:#3b2a3a;opacity:0;transition:opacity .25s ${k*70}ms;font:600 ${ch*.42}px/${ch}px "Microsoft JhengHei",sans-serif;text-align:center;overflow:hidden;white-space:nowrap;box-shadow:0 0 6px #0005;transform:translate3d(${x*sc*.5}px,${y*sc*.5}px,${(l-layers/2)*sc*.55}px)`;
+      d.textContent=(l===0||l===layers-1)?msgs[(k*3+l)%msgs.length]:"";
+      wrap.appendChild(d);setTimeout(()=>d.style.opacity=1,30);
     }
   }
   requestAnimationFrame(()=>box.style.opacity=1);
   let a=0,id;const t0=performance.now();
-  (function spin(now){a=(now-t0)*.05;wrap.style.transform=`rotateX(-12deg) rotateY(${a}deg)`;id=requestAnimationFrame(spin)})(t0);
+  (function spin(now){a=-28+Math.sin((now-t0)/1400)*18;wrap.style.transform=`rotateX(-14deg) rotateY(${a}deg)`;id=requestAnimationFrame(spin)})(t0);
   const cap=document.createElement('div');
   cap.textContent='對不起,可愛的漂亮姊姊';
   cap.style.cssText='position:fixed;z-index:23;left:0;right:0;bottom:12vh;text-align:center;font-size:clamp(20px,4vw,30px);letter-spacing:.4em;color:#fff;text-shadow:0 0 20px #ff9fc4;opacity:0;transition:opacity 1.5s';
   document.body.appendChild(cap);setTimeout(()=>cap.style.opacity=1,900);
-  setTimeout(()=>{box.style.opacity=0;cap.style.opacity=0;setTimeout(()=>{cancelAnimationFrame(id);box.remove();cap.remove();done()},1300)},8000);
+  setTimeout(()=>{box.style.opacity=0;cap.style.opacity=0;setTimeout(()=>{cancelAnimationFrame(id);box.remove();cap.remove();dim=.55;done()},1300)},9500);
 }
 document.getElementById('go').onclick=()=>{
   document.getElementById('intro').style.opacity=0;document.getElementById('hint').style.opacity=0;
   document.getElementById('intro').style.pointerEvents='none';
-  burst(()=>{
-    pops.style.transition='opacity 1.6s';pops.style.opacity=0;
-    heart(afterHeart);
-  });
+  heart(()=>burst(()=>{pops.style.transition='opacity 1.6s';pops.style.opacity=0;afterHeart();}));
 };
 function afterHeart(){
   {
@@ -193,6 +193,8 @@ function startFloat(){
 </script>
 </body>
 </html>
+
+
 
 
 
