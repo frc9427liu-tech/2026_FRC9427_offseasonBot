@@ -108,10 +108,10 @@ async function run(){
       stage.appendChild(d);cards.push({d,px,py});
       setTimeout(()=>d.classList.add('in'),l*25);
     }
-    await wait(22);
+    await wait(18);
   }
   // 3 停一下 → 訊息越冒越多,越來越快,直到快佔滿畫面
-  await wait(1200);
+  await wait(1000);
   title.style.opacity=0;
   const extra=Math.round(W()*H()/(cw*ch)*2.6);
   for(let k=0;k<extra;k++){
@@ -122,7 +122,7 @@ async function run(){
     d.style.zIndex=z++;d.style.rotate=`${(Math.random()-.5)*10}deg`;
     stage.appendChild(d);cards.push({d,px,py});
     requestAnimationFrame(()=>d.classList.add('in'));
-    await wait(Math.max(6,160*Math.pow(1-k/extra,2)));
+    await wait(Math.max(5,133*Math.pow(1-k/extra,2)));
   }
   await wait(900);
   // 4 全部收向中心 → 信封打開
