@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
@@ -24,7 +24,7 @@ html,body{height:100%;background:#0b0a12;overflow:hidden;font-family:"Noto Sans 
 .pop.closable{pointer-events:auto;cursor:pointer}
 .pop.gone{transition:transform .3s,opacity .3s;opacity:0!important;transform:translate(-50%,-50%) scale(.3)!important}
 #hint{position:fixed;left:0;right:0;bottom:5%;text-align:center;z-index:30;color:#ffc4dd;font-size:14px;letter-spacing:.2em;opacity:0;transition:opacity 1s;pointer-events:none}
-#letter{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:8vw;opacity:0;pointer-events:none;transition:opacity 1.5s;background:#0b0a12ee}
+#letter{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:8vw 8vw 24vh;opacity:0;pointer-events:none;transition:opacity 1.5s;background:#0b0a12aa}
 #letter.show{opacity:1;pointer-events:auto}
 #text{max-width:560px;font-size:clamp(17px,2.6vw,24px);line-height:2.1;letter-spacing:.08em;text-align:center;min-height:9em;white-space:pre-wrap;text-shadow:0 0 14px #ff9fc499}
 #btns{margin-top:36px;display:flex;gap:18px;opacity:0;transition:opacity 1s;position:relative;height:52px}
@@ -35,6 +35,10 @@ button{font:inherit;font-size:17px;letter-spacing:.15em;padding:12px 26px;border
 #after{margin-top:26px;font-size:clamp(18px,3vw,26px);letter-spacing:.2em;opacity:0;transition:opacity 1.4s;text-align:center;line-height:1.9}
 #sign{position:fixed;right:5vw;bottom:4vh;z-index:45;font-size:13px;color:#ffc4dd99;letter-spacing:.2em;opacity:0;transition:opacity 2s}
 canvas{position:fixed;inset:0;z-index:50;pointer-events:none}
+#pf{z-index:2}
+#mel{position:fixed;left:50%;bottom:3vh;width:min(30vw,130px);transform:translateX(-50%);z-index:42;opacity:0;transition:opacity 1.6s;pointer-events:none;animation:bob 3s ease-in-out infinite}
+#mel.show{opacity:1}
+@keyframes bob{50%{margin-bottom:10px}}
 </style>
 </head>
 <body>
@@ -45,6 +49,18 @@ canvas{position:fixed;inset:0;z-index:50;pointer-events:none}
 <div id="hint">把它們一個個關掉吧</div>
 <div id="letter"><div id="text"></div><div id="btns"><button id="yes">原諒我嗎？</button><button id="no">再想想</button></div><div id="after"></div></div>
 <div id="sign">— 署名 · 日期</div>
+<svg id="mel" viewBox="0 0 120 140" aria-hidden="true">
+<ellipse cx="38" cy="38" rx="13" ry="34" fill="#fff" transform="rotate(-12 38 38)"/><ellipse cx="38" cy="40" rx="6.5" ry="24" fill="#ffc4dd" transform="rotate(-12 38 40)"/>
+<ellipse cx="82" cy="38" rx="13" ry="34" fill="#fff" transform="rotate(12 82 38)"/><ellipse cx="82" cy="40" rx="6.5" ry="24" fill="#ffc4dd" transform="rotate(12 82 40)"/>
+<path d="M14 92 C10 58 30 44 60 44 C90 44 110 58 106 92 C104 110 92 120 60 120 C28 120 16 110 14 92Z" fill="#ff9fc4"/>
+<ellipse cx="60" cy="88" rx="34" ry="30" fill="#fff"/>
+<path d="M34 66 C44 54 76 54 86 66 C76 60 44 60 34 66Z" fill="#ff9fc4"/>
+<circle cx="47" cy="86" r="3.6" fill="#3b2a3a"/><circle cx="73" cy="86" r="3.6" fill="#3b2a3a"/>
+<ellipse cx="60" cy="93" rx="4" ry="3" fill="#ff7fae"/>
+<circle cx="38" cy="96" r="5" fill="#ffc4dd" opacity=".7"/><circle cx="82" cy="96" r="5" fill="#ffc4dd" opacity=".7"/>
+<g transform="translate(90 58)"><circle r="3" fill="#ffe27a"/><g fill="#fff"><circle cx="0" cy="-6" r="3.6"/><circle cx="5.7" cy="-1.9" r="3.6"/><circle cx="3.5" cy="4.9" r="3.6"/><circle cx="-3.5" cy="4.9" r="3.6"/><circle cx="-5.7" cy="-1.9" r="3.6"/></g><circle r="2.6" fill="#ffe27a"/></g>
+</svg>
+<canvas id="pf"></canvas>
 <canvas id="fx"></canvas>
 <script>
 /* ===== 想改內容,只要改這一區 ===== */
@@ -124,7 +140,7 @@ async function run(){
   for(const c of cards)c.d.classList.add('gone');
   await wait(600);
   // 5 信(打字機)
-  $('letter').classList.add('show');
+  $('letter').classList.add('show');$('mel').classList.add('show');
   await wait(1500);
   const tx=$('text');
   for(const para of letter){
@@ -155,7 +171,7 @@ function setupButtons(){
     const iv=setInterval(()=>boom(Math.random()*W(),Math.random()*H()*.7),700);
     $('after').textContent=afterText;$('after').style.opacity=1;
     $('sign').style.opacity=1;   // 7 收尾
-    setInterval(floaty,600);
+    
     setTimeout(()=>clearInterval(iv),9000);
   });
 }
@@ -181,9 +197,33 @@ function boom(x,y){
   requestAnimationFrame(loop);
 })();
 
+/* 懸浮粒子:粉色愛心/星星/蝴蝶結,緩慢飄,手指或滑鼠靠近會被推開 */
+const pf=$("pf"),pg=pf.getContext("2d");let pts=[],ptr={x:-999,y:-999};
+function psize(){pf.width=W();pf.height=H()}psize();addEventListener("resize",psize);
+addEventListener("pointermove",e=>{ptr.x=e.clientX;ptr.y=e.clientY});
+addEventListener("pointerdown",e=>{ptr.x=e.clientX;ptr.y=e.clientY});
+addEventListener("pointerup",()=>{ptr.x=ptr.y=-999});
+const shapes=["♥","★","✦","🎀"];
+function startParticles(){
+  const n=Math.round(Math.min(70,W()*H()/16000));
+  for(let i=0;i<n;i++)pts.push({x:Math.random()*W(),y:Math.random()*H(),vx:(Math.random()-.5)*.3,vy:-.15-Math.random()*.4,s:12+Math.random()*20,c:cols[i%cols.length],ch:shapes[i%shapes.length],ph:Math.random()*6.28,a:.25+Math.random()*.5});
+  (function tick(t){
+    pg.clearRect(0,0,pf.width,pf.height);
+    for(const p of pts){
+      const dx=p.x-ptr.x,dy=p.y-ptr.y,d=Math.hypot(dx,dy);
+      if(d<110&&d>0){p.vx+=dx/d*.6;p.vy+=dy/d*.6}
+      p.vx*=.96;p.vy=p.vy*.96+(-.25*.04);
+      p.x+=p.vx+Math.sin(t/1500+p.ph)*.25;p.y+=p.vy;
+      if(p.y<-30){p.y=H()+30;p.x=Math.random()*W()}
+      if(p.x<-30)p.x=W()+30;if(p.x>W()+30)p.x=-30;
+      pg.globalAlpha=p.a;pg.fillStyle=p.c;pg.font=p.s+"px sans-serif";pg.fillText(p.ch,p.x,p.y);
+    }
+    requestAnimationFrame(tick);
+  })(0);
+}
 $('start').addEventListener('click',()=>{
   $('start').style.opacity=0;setTimeout(()=>$('start').remove(),1000);
-  setInterval(floaty,1500);
+  startParticles();
   run();
 },{once:true});
 </script>
