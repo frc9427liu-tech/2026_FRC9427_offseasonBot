@@ -72,7 +72,7 @@ let afterText='謝謝妳願意聽我說\n（這裡是按下「原諒我嗎？」
 /* ================================= */
 fetch('content.json?'+Date.now()).then(r=>r.json()).then(c=>{if(c.msgs&&c.msgs.length)msgs=c.msgs;if(c.letter&&c.letter.length)letter=c.letter;if(c.afterText)afterText=c.afterText}).catch(()=>{});
 
-const cols=['#ffb6d0','#ffd1e3','#ffc4dd','#e7c6ff','#c7e0ff','#fff0a8','#ffd6c2','#ff9fc4','#b8f0c8'];
+const cols=['#ff3fd8','#7dff4f','#6fd8ff','#ffffff','#ff7ac8','#c8ff8a','#9fe3ff','#f5f5f5','#ff3fd8'];
 const $=id=>document.getElementById(id);
 const stage=$('stage'),title=$('title');
 const W=()=>innerWidth,H=()=>innerHeight;
@@ -90,17 +90,17 @@ async function run(){
   // 1 標題
   await wait(400);title.style.opacity=1;await wait(1800);
   // 2 彈窗圍成愛心
-  const N=110,unit=Math.min(W(),H());
-  const cw=Math.max(64,unit*.13),ch=cw*.42;
+  const N=220,unit=Math.min(W(),H());
+  const cw=Math.max(54,unit*.095),ch=cw*.42;
   const cx=W()/2,cy=H()/2+unit*.02,sc=unit/34;
   const cards=[];let z=0;
   for(let k=0;k<N;k++){
     const t=Math.PI+k/N*Math.PI*2;
     const x=16*Math.pow(Math.sin(t),3);
     const y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
-    const layers=3+Math.floor(Math.random()*2);
+    const layers=4+Math.floor(Math.random()*2);
     for(let l=0;l<layers;l++){
-      const px=cx+x*sc+(Math.random()-.5)*cw*.35,py=cy+y*sc+(Math.random()-.5)*ch*.5;
+      const px=cx+x*sc+(Math.random()-.5)*cw*.22,py=cy+y*sc+(Math.random()-.5)*ch*.35;
       const d=document.createElement('div');d.className='pop';
       d.style.cssText+=`left:${px}px;top:${py}px;width:${cw}px;background:${cols[(k+l*3)%cols.length]}`;
       d.innerHTML=`<div class="bar"><span>♡</span><span>×</span></div><div class="msg" style="font-size:${ch*.34}px;padding:${ch*.22}px 6px">${msgs[(k+l*5)%msgs.length]}</div>`;
@@ -108,12 +108,12 @@ async function run(){
       stage.appendChild(d);cards.push({d,px,py});
       setTimeout(()=>d.classList.add('in'),l*25);
     }
-    await wait(45);
+    await wait(22);
   }
   // 3 停一下 → 訊息越冒越多,越來越快,直到快佔滿畫面
   await wait(1200);
   title.style.opacity=0;
-  const extra=Math.round(W()*H()/(cw*ch)*.9);
+  const extra=Math.round(W()*H()/(cw*ch)*2.6);
   for(let k=0;k<extra;k++){
     const px=cw/2+Math.random()*(W()-cw),py=ch/2+Math.random()*(H()-ch);
     const d=document.createElement('div');d.className='pop';
@@ -122,7 +122,7 @@ async function run(){
     d.style.zIndex=z++;d.style.rotate=`${(Math.random()-.5)*10}deg`;
     stage.appendChild(d);cards.push({d,px,py});
     requestAnimationFrame(()=>d.classList.add('in'));
-    await wait(Math.max(12,260*Math.pow(1-k/extra,2)));
+    await wait(Math.max(6,160*Math.pow(1-k/extra,2)));
   }
   await wait(900);
   // 4 全部收向中心 → 信封打開
