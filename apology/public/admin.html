@@ -1,0 +1,26 @@
+﻿<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>後台</title>
+<style>
+body{font-family:"Microsoft JhengHei",sans-serif;max-width:560px;margin:30px auto;padding:0 16px;color:#333}
+label{display:block;margin:16px 0 4px;font-weight:bold}input,textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font:inherit}
+textarea{min-height:140px}input[type=color]{height:44px;padding:2px}button{margin-top:20px;padding:12px 24px;border:0;border-radius:8px;background:#333;color:#fff;font-size:1rem;cursor:pointer}
+#msg{margin-left:12px}a{margin-left:12px}
+</style></head><body><h1>道歉網頁後台</h1>
+<div id="login"><label>密碼</label><input id="pw" type="password"><button onclick="load()">登入</button><span id="m1" style="color:red"></span></div>
+<div id="edit" hidden>
+<label>標題</label><input id="title"><label>給誰</label><input id="to">
+<label>內文(換行會保留)</label><textarea id="body"></textarea>
+<label>承諾(一行一條)</label><textarea id="promises"></textarea>
+<label>署名</label><input id="from"><label>主題顏色</label><input id="theme" type="color">
+<label>新密碼(不改就留空)</label><input id="newpw" type="password">
+<button onclick="save()">儲存</button><span id="msg"></span><a href="/" target="_blank">預覽網頁</a></div>
+<script>
+let PW='';const $=id=>document.getElementById(id);
+async function load(){PW=$('pw').value;const r=await fetch('/api/admin/load',{method:'POST',body:JSON.stringify({pw:PW})});
+ if(!r.ok){$('m1').textContent=' 密碼錯誤';return}const c=await r.json();
+ $('login').hidden=true;$('edit').hidden=false;
+ for(const k of ['title','to','body','from','theme'])$(k).value=c[k]||'';$('promises').value=(c.promises||[]).join('\n')}
+async function save(){const content={title:$('title').value,to:$('to').value,body:$('body').value,from:$('from').value,theme:$('theme').value,promises:$('promises').value.split('\n').map(s=>s.trim()).filter(Boolean)};
+ if($('newpw').value)content.password=$('newpw').value;
+ const r=await fetch('/api/admin/save',{method:'POST',body:JSON.stringify({pw:PW,content})});
+ if(r.ok){if(content.password)PW=content.password;$('newpw').value='';$('msg').textContent='✅ 已儲存'}else $('msg').textContent='❌ 失敗'}
+</script></body></html>
