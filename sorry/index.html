@@ -54,14 +54,15 @@ canvas{position:fixed;inset:0;z-index:50;pointer-events:none}
 <canvas id="fx"></canvas>
 <script>
 /* ===== 想改內容,只要改這一區 ===== */
-const msgs=['記得吃飯','要多喝水','別熬夜','對不起','順順利利','保持好心情','好好愛自己','天冷多穿衣服','辛苦了','抱抱妳','一切都會好起來','早點休息','妳已經很棒了','慢慢來不急','累了就休息','今天也要開心'];
-const letter=[
+let msgs=['記得吃飯','要多喝水','別熬夜','對不起','順順利利','保持好心情','好好愛自己','天冷多穿衣服','辛苦了','抱抱妳','一切都會好起來','早點休息','妳已經很棒了','慢慢來不急','累了就休息','今天也要開心'];
+let letter=[
  '（第一段）\n這裡放你想說的第一段話。',
  '（第二段）\n這裡放你想說的第二段話。',
  '（第三段）\n這裡放你想說的第三段話。'
 ];
-const afterText='謝謝妳願意聽我說\n（這裡是按下「原諒我嗎？」後的那句話）';
+let afterText='謝謝妳願意聽我說\n（這裡是按下「原諒我嗎？」後的那句話）';
 /* ================================= */
+fetch('content.json?'+Date.now()).then(r=>r.json()).then(c=>{if(c.msgs&&c.msgs.length)msgs=c.msgs;if(c.letter&&c.letter.length)letter=c.letter;if(c.afterText)afterText=c.afterText}).catch(()=>{});
 
 const cols=['#ffb6d0','#ffd1e3','#ffc4dd','#e7c6ff','#c7e0ff','#fff0a8','#ffd6c2','#ff9fc4','#b8f0c8'];
 const $=id=>document.getElementById(id);

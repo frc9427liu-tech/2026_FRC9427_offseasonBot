@@ -1,0 +1,32 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>道歉網頁後台</title>
+<style>
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;max-width:600px;margin:0 auto;padding:20px 16px 60px;color:#3a2a2e;line-height:1.7;background:#fff7fa}
+h1{font-size:1.4rem}label{display:block;margin:18px 0 6px;font-weight:700}small{color:#8a7a7e;font-weight:400}
+input,textarea{width:100%;padding:12px;border:1px solid #e7c6d3;border-radius:12px;font:inherit;background:#fff}textarea{min-height:120px}
+button{margin-top:16px;padding:14px 26px;border:0;border-radius:99px;background:#e85d8a;color:#fff;font:inherit;font-weight:700}
+button.g{background:#fff;color:#e85d8a;border:1px solid #e85d8a}#msg{margin-top:12px}.box{background:#fff;border-radius:16px;padding:14px;margin-top:14px;border:1px solid #f3d3de}
+</style></head><body><h1>💗 道歉網頁後台</h1>
+<div class="box"><b>第一次使用:</b>貼上 GitHub Token(只存在這支手機/瀏覽器)。<br><small>GitHub → Settings → Developer settings → Fine-grained tokens,選這個 repo,Contents 權限 Read and write。</small>
+<input id="tok" type="password" placeholder="github_pat_..." autocomplete="off"><button class="g" onclick="load()">載入目前內容</button></div>
+<div id="ed" hidden>
+<label>彈窗句子 <small>(一行一句,會圍成愛心)</small></label><textarea id="msgs" style="min-height:220px"></textarea>
+<label>信 <small>(段落之間空一行;段內換行會保留)</small></label><textarea id="letter" style="min-height:260px"></textarea>
+<label>按「原諒我嗎?」之後的那句話</label><textarea id="after"></textarea>
+<button onclick="save()">儲存並發布</button> <a href="./" target="_blank">預覽</a><div id="msg"></div></div>
+<script>
+const R='frc9427liu-tech/2026_FRC9427_offseasonBot',B='worktree-apology-site',P='sorry/content.json';
+const $=i=>document.getElementById(i);$('tok').value=localStorage.getItem('gh')||'';
+const H=()=>({Authorization:'Bearer '+$('tok').value.trim(),Accept:'application/vnd.github+json'});
+const u8=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s))),d8=b=>new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\n/g,'')),c=>c.charCodeAt(0)));
+let sha='';
+async function load(){const m=$('msg');m.textContent='載入中…';
+ const r=await fetch(`https://api.github.com/repos/${R}/contents/${P}?ref=${B}`,{headers:H()});
+ if(!r.ok){m.textContent='❌ 載入失敗(Token 不對或沒權限)';return}
+ const j=await r.json();sha=j.sha;const c=JSON.parse(d8(j.content));localStorage.setItem('gh',$('tok').value.trim());
+ $('msgs').value=c.msgs.join('\n');$('letter').value=c.letter.join('\n\n');$('after').value=c.afterText;$('ed').hidden=false;m.textContent='✅ 已載入'}
+async function save(){const m=$('msg');m.textContent='儲存中…';
+ const c={msgs:$('msgs').value.split('\n').map(s=>s.trim()).filter(Boolean),letter:$('letter').value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean),afterText:$('after').value.trim()};
+ const r=await fetch(`https://api.github.com/repos/${R}/contents/${P}`,{method:'PUT',headers:H(),body:JSON.stringify({message:'Update apology content via admin',content:u8(JSON.stringify(c,null,2)),sha,branch:B})});
+ if(!r.ok){m.textContent='❌ 儲存失敗('+r.status+'),重新載入再試';return}
+ sha=(await r.json()).content.sha;m.textContent='✅ 已儲存,約 1 分鐘後網頁更新'}
+</script></body></html>
